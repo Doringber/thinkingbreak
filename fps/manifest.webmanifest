@@ -1,0 +1,17 @@
+{
+  "name": "Thinking Break — Arena",
+  "short_name": "Thinking Break",
+  "description": "A lightweight browser arena shooter that plays while your coding agent works.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0A0C12",
+  "theme_color": "#0A0C12",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "../assets/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

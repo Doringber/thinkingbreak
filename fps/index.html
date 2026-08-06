@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<title>Thinking Break — Arena</title>
+<meta name="description" content="A lightweight browser arena shooter that plays while your coding agent works." />
+<!-- Relative paths throughout: the site is served from /thinkingbreak/ on
+     GitHub Pages and from / during local development. -->
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<meta name="theme-color" content="#0A0C12" />
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<canvas id="scene" aria-label="Thinking Break arena"></canvas>
+
+<div id="boot-loader" class="boot-loader">
+  <div class="boot-mark">TB</div>
+  <p>Loading arena…</p>
+</div>
+
+<div id="fatal" class="fatal hidden" role="alert">
+  <h2>Thinking Break could not start</h2>
+  <p id="fatal-message"></p>
+  <p class="fatal-hint">This game needs WebGL2. Try a recent Chrome, Edge, Firefox or Safari.</p>
+</div>
+
+<!-- ── HUD ─────────────────────────────────────────────────────────────── -->
+<div id="hud" class="hud">
+  <div class="hud-top">
+    <div class="hud-block">
+      <span id="hud-score" class="hud-score">0</span>
+      <span id="hud-high" class="hud-sub">BEST 0</span>
+    </div>
+    <div class="hud-block hud-center">
+      <span id="hud-timer" class="hud-timer">∞</span>
+      <span id="hud-mode" class="hud-sub">Survival</span>
+    </div>
+    <div class="hud-block hud-right">
+      <span id="hud-round" class="hud-round">ROUND 1</span>
+      <span id="streak" class="hud-streak"></span>
+    </div>
+  </div>
+
+  <div id="agent-status" class="agent-status">
+    <span class="agent-dot" aria-hidden="true"></span>
+    <span id="agent-status-text">Agent working</span>
+  </div>
+
+  <div id="killfeed" class="killfeed" aria-live="polite"></div>
+
+  <div id="crosshair" class="crosshair" aria-hidden="true">
+    <span class="ch ch-t"></span><span class="ch ch-b"></span>
+    <span class="ch ch-l"></span><span class="ch ch-r"></span>
+    <span class="ch-dot"></span>
+  </div>
+  <div id="hitmarker" class="hitmarker" aria-hidden="true">
+    <span></span><span></span><span></span><span></span>
+  </div>
+
+  <div id="damage-flash" class="damage-flash" aria-hidden="true"></div>
+  <div id="banner" class="banner" aria-live="polite"></div>
+  <div id="toast" class="toast" aria-live="polite"></div>
+  <div id="fps-counter" class="fps-counter"></div>
+
+  <div class="hud-bottom">
+    <div class="hud-health">
+      <div class="health-track"><div id="health-fill" class="health-fill"></div></div>
+      <span id="health-value" class="health-value">100</span>
+      <span class="health-label">HP</span>
+    </div>
+    <div class="hud-weapon">
+      <span id="weapon-name" class="weapon-name">AR-9 Cascade</span>
+      <span class="ammo"><span id="ammo-current">30</span><span class="ammo-sep">/</span><span id="ammo-reserve">150</span></span>
+      <div id="reload-bar" class="reload-bar"><div id="reload-fill" class="reload-fill"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Overlay ─────────────────────────────────────────────────────────── -->
+<div id="overlay" class="overlay show">
+  <div class="overlay-inner">
+
+    <section id="panel-pause" class="panel">
+      <div class="brand">
+        <span class="brand-mark">TB</span>
+        <span class="brand-name">Thinking Break</span>
+      </div>
+      <p id="pause-reason" class="panel-lead">Ready when you are.</p>
+      <p id="pause-summary" class="panel-sub"></p>
+      <div class="panel-actions">
+        <button id="btn-resume" class="btn btn-primary">Play</button>
+        <button id="btn-modes" class="btn">Game modes</button>
+        <button id="btn-settings" class="btn">Settings</button>
+        <button id="btn-restart" class="btn btn-quiet">Restart round</button>
+      </div>
+      <dl class="controls">
+        <div><dt>WASD</dt><dd>Move</dd></div>
+        <div><dt>Mouse</dt><dd>Aim</dd></div>
+        <div><dt>Left click</dt><dd>Fire</dd></div>
+        <div><dt>Shift</dt><dd>Sprint</dd></div>
+        <div><dt>Space</dt><dd>Jump</dd></div>
+        <div><dt>Ctrl / C</dt><dd>Crouch · slide</dd></div>
+        <div><dt>R</dt><dd>Reload</dd></div>
+        <div><dt>1 2 3 · Q · Wheel</dt><dd>Weapons</dd></div>
+        <div><dt>Esc</dt><dd>Pause</dd></div>
+        <div><dt>P</dt><dd>FPS counter</dd></div>
+      </dl>
+      <p class="panel-foot">
+        Progress saves locally and resumes on your agent's next task.
+        <a href="../" target="_top">About Thinking Break</a>
+      </p>
+    </section>
+
+    <section id="panel-modes" class="panel hidden">
+      <h2 class="panel-title">Game modes</h2>
+      <p class="panel-sub">Each one is sized for a single agent turn.</p>
+      <div id="mode-list" class="mode-list"></div>
+      <button id="btn-modes-back" class="btn btn-quiet">Back</button>
+    </section>
+
+    <section id="panel-settings" class="panel hidden">
+      <h2 class="panel-title">Settings</h2>
+
+      <label class="field">
+        <span class="field-label">Mouse sensitivity <b id="set-sensitivity-value">2.20</b></span>
+        <input id="set-sensitivity" type="range" min="20" max="800" step="5" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Field of view <b id="set-fov-value">90</b></span>
+        <input id="set-fov" type="range" min="60" max="120" step="1" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Volume <b id="set-volume-value">60%</b></span>
+        <input id="set-volume" type="range" min="0" max="100" step="1" />
+      </label>
+
+      <div class="field">
+        <span class="field-label">Graphics</span>
+        <div class="segmented">
+          <button data-quality="low">Low</button>
+          <button data-quality="medium">Medium</button>
+          <button data-quality="high">High</button>
+          <button data-quality="auto">Auto</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Bot difficulty</span>
+        <div class="segmented">
+          <button data-difficulty="easy">Easy</button>
+          <button data-difficulty="normal">Normal</button>
+          <button data-difficulty="hard">Hard</button>
+        </div>
+      </div>
+
+      <label class="check"><input id="set-invert" type="checkbox" /> Invert vertical aim</label>
+      <label class="check"><input id="set-fps" type="checkbox" /> Show FPS counter</label>
+
+      <button id="btn-settings-back" class="btn btn-quiet">Back</button>
+    </section>
+
+    <section id="panel-gameover" class="panel hidden">
+      <h2 id="go-title" class="panel-title">ELIMINATED</h2>
+      <p id="go-mode" class="panel-sub">Survival</p>
+      <p id="go-record" class="record hidden">New personal best</p>
+      <div class="stats">
+        <div class="stat"><span id="go-score" class="stat-value">0</span><span class="stat-label">Score</span></div>
+        <div class="stat"><span id="go-kills" class="stat-value">0</span><span class="stat-label">Kills</span></div>
+        <div class="stat"><span id="go-headshots" class="stat-value">0</span><span class="stat-label">Headshots</span></div>
+        <div class="stat"><span id="go-streak" class="stat-value">0</span><span class="stat-label">Best streak</span></div>
+        <div class="stat"><span id="go-best" class="stat-value">0</span><span class="stat-label">Personal best</span></div>
+      </div>
+      <div class="panel-actions">
+        <button id="btn-again" class="btn btn-primary">Play again</button>
+        <button id="btn-gameover-modes" class="btn">Change mode</button>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div id="debug-bar" class="debug-bar hidden">
+  <span>Lifecycle test:</span>
+  <button id="debug-busy">agent busy</button>
+  <button id="debug-idle">agent idle</button>
+  <button id="debug-clear">clear save</button>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
