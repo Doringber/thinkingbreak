@@ -26,7 +26,13 @@
 
 import { isValidRoomCode, normalizeRoomCode } from './protocol.js';
 
-const SDK_VERSION = '2.45.4';
+// The major line rather than an exact patch, on purpose. Supabase's newer
+// `sb_publishable_…` keys are not JWTs, and client versions from before that
+// format existed reject them — pinning a patch we happened to write down once
+// is how you end up debugging a "wrong key" that is in fact a stale client.
+// Both CDNs resolve `@2` to the newest 2.x, so a project using either the new
+// publishable key or a legacy `eyJ…` anon key gets a client that understands it.
+const SDK_VERSION = '2';
 
 // Two CDNs, tried in order. Corporate networks routinely allowlist one and not
 // the other, and from a player's side a blocked CDN is indistinguishable from
