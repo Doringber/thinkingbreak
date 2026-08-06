@@ -38,6 +38,26 @@ const SDK_SOURCES = [
 
 export class MultiplayerError extends Error {}
 
+// Long enough for a cold CDN fetch plus a WebSocket handshake on a slow link,
+// short enough that a wrong URL or a network that blocks WebSockets says so
+// instead of showing "Connecting…" forever.
+const CONNECT_TIMEOUT_MS = 12_000;
+
+/**
+ * A per-tab identity. `crypto.randomUUID` needs a secure context, which a
+ * teammate opening the game over plain HTTP on a LAN address does not have —
+ * fall back instead of throwing a TypeError that reads like a broken game.
+ */
+function newPlayerId() {
+  const c = globalThis.crypto;
+  if (typeof c?.randomUUID === 'function') return c.randomUUID();
+  if (typeof c?.getRandomValues === 'function') {
+    return [...c.getRandomValues(new Uint8Array(16))]
+      .map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  return `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 let sdkPromise = null;
 function loadSdk() {
   if (sdkPromise) return sdkPromise;
@@ -77,10 +97,14 @@ function loadSdk() {
  *   Fires once per hit broadcast addressed to this player. Apply it to local
  *   health — nothing needs to be cleaned up, broadcasts aren't stored.
  * @param {(err: unknown) => void} [opts.onError]
+ * @param {object} [opts.initialSnapshot]
+ *   Published the moment the channel is live. Without it a player stays
+ *   invisible until the game's next publish tick, which never comes if they
+ *   joined while paused — exactly when someone opens the roster to look.
  *
  * @returns a session handle: `publish`, `reportHit`, `leave`, `playerId`.
  */
-export async function joinRoom({ config, roomCode, onRoster, onIncomingHit, onError }) {
+export async function joinRoom({ config, roomCode, onRoster, onIncomingHit, onError, initialSnapshot }) {
   const code = normalizeRoomCode(roomCode);
   if (!isValidRoomCode(code)) {
     throw new MultiplayerError(`"${roomCode}" is not a valid room code (4-12 letters or numbers).`);
@@ -96,7 +120,7 @@ export async function joinRoom({ config, roomCode, onRoster, onIncomingHit, onEr
 
   // No Supabase Auth needed — a random id is enough identity for a
   // trusted-team room-code model, and it skips a whole setup step.
-  const playerId = crypto.randomUUID();
+  const playerId = newPlayerId();
 
   const channel = supabase.channel(`room-${code}`, {
     config: { presence: { key: playerId } },
@@ -122,14 +146,50 @@ export async function joinRoom({ config, roomCode, onRoster, onIncomingHit, onEr
     }
   });
 
-  await new Promise((resolve, reject) => {
-    channel.subscribe((status, err) => {
-      if (status === 'SUBSCRIBED') resolve();
-      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        reject(err instanceof Error ? err : new MultiplayerError('Could not connect to the room.'));
-      }
+  try {
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve();
+      };
+      // Nothing guarantees the callback ever fires — a network that silently
+      // drops WebSockets just goes quiet — so the wait has its own deadline.
+      const timer = setTimeout(() => finish(new MultiplayerError(
+        'Timed out connecting to the room. Check the Supabase URL and key in '
+        + 'supabaseConfig.js, and that this network allows WebSocket connections.',
+      )), CONNECT_TIMEOUT_MS);
+
+      channel.subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') return finish();
+        // CLOSED arrives with no error attached. Without it here, a refused
+        // subscription leaves the caller waiting on a promise that never
+        // settles — the UI stuck on "Connecting…" with nothing to retry.
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          finish(err instanceof Error ? err : new MultiplayerError(
+            `Could not join the room (${status.toLowerCase().replace(/_/g, ' ')}).`,
+          ));
+        }
+      });
     });
-  });
+  } catch (err) {
+    // Don't leave a half-open channel behind for the next Join to fight.
+    try { await supabase.removeChannel(channel); } catch { /* nothing to undo */ }
+    throw err;
+  }
+
+  // Be in the roster before returning, so teammates see this player even if the
+  // game is paused and never reaches a publish tick.
+  if (initialSnapshot) {
+    try {
+      await channel.track(initialSnapshot);
+    } catch {
+      /* the next publish retries — not worth failing the whole join over */
+    }
+  }
 
   let left = false;
   return {

@@ -350,6 +350,9 @@ export class Game {
       const session = await joinRoom({
         config: supabaseConfig,
         roomCode,
+        // Be visible the instant we're in, not on the next publish tick — which
+        // never arrives if the agent is idle and the game is sitting paused.
+        initialSnapshot: this.wireSnapshot(),
         onRoster: (players, localId) => this.onMultiplayerRoster(players, localId),
         onIncomingHit: (amount, fromId) => this.onRemoteHit(amount, fromId),
         onError: (err) => {
@@ -453,8 +456,8 @@ export class Game {
       .map((s) => ({ x: s.x, z: s.z }));
   }
 
-  updateMultiplayerPublish(now) {
-    if (!this.multiplayer) return;
+  /** This player in wire form — what teammates render us from. */
+  wireSnapshot() {
     const p = this.player;
     const { def } = this.currentWeapon;
     // player.js's p.y is the top of the collision box; remote clients render
@@ -462,12 +465,17 @@ export class Game {
     // centre rather than the raw value — otherwise every teammate sees us
     // floating above (or sunk into) the floor.
     const netY = (p.y - p.height) + BOT.halfHeight;
-    const snapshot = buildSnapshot({
+    return buildSnapshot({
       x: p.x, y: netY, z: p.z, yaw: p.yaw,
       health: p.health, weapon: def.id, alive: p.alive,
       agentState: this.agentState, kills: this.mode.kills,
       name: null, t: Date.now(),
     });
+  }
+
+  updateMultiplayerPublish(now) {
+    if (!this.multiplayer) return;
+    const snapshot = this.wireSnapshot();
     if (this.multiplayerPublishGate.shouldPublish(now, snapshot)) {
       this.multiplayer.publish(snapshot);
     }
