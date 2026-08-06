@@ -1,0 +1,120 @@
+{
+  "name": "thinking-break-cursor",
+  "displayName": "Thinking Break for Cursor",
+  "description": "Play a fast browser FPS while Cursor's agent is working \u2014 it resumes when the agent goes busy and pauses when it finishes.",
+  "version": "1.0.0",
+  "publisher": "doringber",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Doringber/thinkingbreak.git"
+  },
+  "homepage": "https://doringber.github.io/thinkingbreak/",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "agent",
+    "game",
+    "fps",
+    "claude",
+    "cursor",
+    "codex",
+    "break"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "thinking-break-cursor.openGame",
+        "title": "Thinking Break: Open Game"
+      },
+      {
+        "command": "thinking-break-cursor.closeGame",
+        "title": "Thinking Break: Close Game Panel"
+      },
+      {
+        "command": "thinking-break-cursor.installHooks",
+        "title": "Thinking Break: Install Cursor's agent Hooks"
+      }
+    ],
+    "configuration": {
+      "title": "Thinking Break for Cursor",
+      "properties": {
+        "thinkingBreakCursor.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Thinking Break."
+        },
+        "thinkingBreakCursor.gameUrl": {
+          "type": "string",
+          "default": "https://doringber.github.io/thinkingbreak/fps/",
+          "description": "URL of the Thinking Break game to open."
+        },
+        "thinkingBreakCursor.delaySeconds": {
+          "type": "number",
+          "default": 3,
+          "minimum": 0,
+          "description": "Seconds to wait after Cursor starts working before opening or resuming the game."
+        },
+        "thinkingBreakCursor.idleGraceSeconds": {
+          "type": "number",
+          "default": 1.2,
+          "minimum": 0,
+          "description": "Ignore an idle signal that arrives this soon after a busy one, so the game does not pause between consecutive tool calls."
+        },
+        "thinkingBreakCursor.onIdle": {
+          "type": "string",
+          "enum": [
+            "pauseAndFocusEditor",
+            "pauseOnly",
+            "pauseAndClose"
+          ],
+          "default": "pauseAndFocusEditor",
+          "enumDescriptions": [
+            "Pause the game, save the session, and return focus to the editor (panel stays open so the next task resumes instantly).",
+            "Pause the game and leave focus where it is.",
+            "Pause the game and close the panel. The next task reopens it from the saved session."
+          ],
+          "description": "What to do when Cursor finishes a task."
+        },
+        "thinkingBreakCursor.hidePanelsWhenPlaying": {
+          "type": "boolean",
+          "default": true,
+          "description": "Collapse sidebars when opening the game so the viewport is landscape."
+        },
+        "thinkingBreakCursor.openInBackground": {
+          "type": "boolean",
+          "default": false,
+          "description": "Open the game panel without stealing focus from the editor."
+        },
+        "thinkingBreakCursor.openInExternalBrowser": {
+          "type": "boolean",
+          "default": false,
+          "description": "Open the game in your system browser instead of inside Cursor."
+        },
+        "thinkingBreakCursor.useSimpleBrowser": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use the built-in Simple Browser instead of the Thinking Break webview panel. Pause and resume then require a page reload."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package --no-dependencies --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.6.0"
+  }
+}
