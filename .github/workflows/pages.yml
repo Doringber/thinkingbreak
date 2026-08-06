@@ -1,0 +1,52 @@
+# Deploy Thinking Break to GitHub Pages.
+#
+# The repository root *is* the site — hand-written HTML/CSS and native ES
+# modules, no bundler — so the job verifies the paths and uploads the tree
+# as-is. `.nojekyll` stops Jekyll from swallowing directories it dislikes.
+#
+# Published at https://doringber.github.io/thinkingbreak/
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let an in-flight deploy finish rather than cancelling it mid-publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify paths and branding
+        run: node tools/verify-paths.js
+      - name: Run tests
+        run: node --test "tests/**/*.test.js"
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
