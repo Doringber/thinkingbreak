@@ -278,6 +278,24 @@ npm run build:extensions  # just the three extensions
 npm run check             # build + test
 ```
 
+### Verifying a deployment for real
+
+`deploy-pages` going green only means the files synced — not that the page
+loads, the ES modules resolve under the base path, or the game boots. To check
+that, `tools/verify-live.js` drives a real Chromium at a URL and asserts all of
+it, including a full agent idle → pause → busy → resume cycle on the live
+build:
+
+```bash
+npm i -D playwright && npx playwright install chromium
+npm run verify:live                                        # production
+npm run verify:live -- http://localhost:8080/thinkingbreak/ # local
+```
+
+It exits non-zero on any failure, and the Pages workflow runs it against the
+freshly published URL after every deploy. Playwright is a dev-only dependency —
+the game itself still ships with none.
+
 ### Building an extension `.vsix`
 
 ```bash

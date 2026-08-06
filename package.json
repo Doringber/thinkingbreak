@@ -16,7 +16,8 @@
     "build": "node tools/build.js",
     "build:extensions": "node tools/build-extensions.js",
     "check": "npm run build && npm test",
-    "verify:paths": "node tools/verify-paths.js"
+    "verify:paths": "node tools/verify-paths.js",
+    "verify:live": "node tools/verify-live.js"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

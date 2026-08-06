@@ -89,3 +89,16 @@ jobs:
             exit 1
           fi
           echo "✓ site is live at $PUBLISHED"
+
+      # A synced artifact is not a working site: the modules still have to
+      # resolve under the base path and the game still has to boot. Load the
+      # real URL in a real browser and check that it does.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install a browser for the live check
+        run: |
+          npm i --no-save --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Verify the live site in a real browser
+        run: node tools/verify-live.js "${{ steps.deployment.outputs.page_url }}"
