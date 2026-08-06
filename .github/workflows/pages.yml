@@ -29,11 +29,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Verify paths and branding
         run: node tools/verify-paths.js
       - name: Run tests
-        run: node --test "tests/**/*.test.js"
+        run: npm test
 
   deploy:
     needs: verify
@@ -43,7 +43,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # `enablement` turns Pages on for the repository if it is not already,
+      # so a fresh clone deploys without anyone visiting the settings page.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
