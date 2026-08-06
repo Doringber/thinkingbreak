@@ -1,0 +1,26 @@
+{
+  "name": "thinking-break",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Thinking Break — a lightweight browser FPS that opens while your coding agent is working and pauses when it's done.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Doringber/thinkingbreak.git"
+  },
+  "homepage": "https://doringber.github.io/thinkingbreak/",
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.js\"",
+    "serve": "node tools/serve.js",
+    "build": "node tools/build.js",
+    "build:extensions": "node tools/build-extensions.js",
+    "check": "npm run build && npm test",
+    "verify:paths": "node tools/verify-paths.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/vscode": "^1.125.0",
+    "typescript": "^5.6.0"
+  }
+}
