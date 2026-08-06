@@ -54,3 +54,38 @@ jobs:
           path: .
       - id: deployment
         uses: actions/deploy-pages@v4
+
+      # deploy-pages reports success as long as the files synced — even when
+      # they were published somewhere unreachable. A custom domain configured
+      # in the repository's Pages settings silently moves the whole site off
+      # /thinkingbreak/, which breaks every absolute URL the installers and
+      # extensions hand out. Fail here rather than ship a green run whose site
+      # nobody can load.
+      - name: Assert the site published to the expected URL
+        env:
+          PUBLISHED: ${{ steps.deployment.outputs.page_url }}
+          EXPECTED: https://doringber.github.io/thinkingbreak/
+        run: |
+          echo "published: $PUBLISHED"
+          echo "expected:  $EXPECTED"
+          if [ "$PUBLISHED" != "$EXPECTED" ]; then
+            {
+              echo "### Pages published to the wrong URL"
+              echo ""
+              echo "| | |"
+              echo "|---|---|"
+              echo "| published | \`$PUBLISHED\` |"
+              echo "| expected  | \`$EXPECTED\` |"
+              echo ""
+              echo "This almost always means a **custom domain** is set under"
+              echo "Settings → Pages. Clear that field to serve the site at the"
+              echo "default URL, or update these to match the new host:"
+              echo "- \`DEFAULT_GAME_URL\` in \`extensions/shared/activation.ts\`"
+              echo "- the URLs in \`install.sh\`, \`install-terminal.sh\`, \`uninstall.sh\`"
+              echo "- \`BASE_URL\` in \`tools/verify-paths.js\`"
+              echo "- the links in \`index.html\` and \`README.md\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=Pages published to the wrong URL::Got '$PUBLISHED', expected '$EXPECTED'. A custom domain in Settings → Pages moves the site off /thinkingbreak/ and breaks every absolute URL. See the run summary."
+            exit 1
+          fi
+          echo "✓ site is live at $PUBLISHED"
