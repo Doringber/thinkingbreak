@@ -12,8 +12,8 @@
 // project's values, never someone else's.
 
 export const supabaseConfig = {
-  url: '',
-  anonKey: '',
+  url: 'https://nrgzktqvbkyiuywraanq.supabase.co',
+  anonKey: 'sb_publishable_YhBusXcfc7iDpMjZKCUsXA_srj-aqvZ',
 };
 
 /** True once the fields multiplayer actually needs are filled in. */
