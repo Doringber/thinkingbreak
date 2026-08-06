@@ -43,6 +43,41 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
+      # This project is served from a project path (/thinkingbreak/), and every
+      # absolute URL it hands out — the install command, the extensions'
+      # default gameUrl — is built on that. A custom domain silently moves the
+      # site to that domain's root and breaks all of them, so the repository
+      # declares the default domain as canonical and clears anything else.
+      #
+      # Runs before configure-pages so the same run publishes to the corrected
+      # URL. Never fails the deploy: if the token is not allowed to change the
+      # setting, the assertion after deployment reports it with instructions.
+      - name: Enforce the canonical Pages domain
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          current=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq '.cname // ""' 2>/dev/null || echo "")
+          if [ -z "$current" ]; then
+            echo "✓ no custom domain configured — nothing to do"
+            exit 0
+          fi
+
+          echo "custom domain currently set to: $current"
+          echo "clearing it so the site serves from the default domain…"
+          if printf '{"cname":null}' | gh api -X PUT "repos/$GITHUB_REPOSITORY/pages" --input - ; then
+            after=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq '.cname // ""' 2>/dev/null || echo "")
+            if [ -z "$after" ]; then
+              echo "✓ custom domain removed"
+              echo "Removed the \`$current\` custom domain; the site will serve from the default GitHub Pages domain." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::API accepted the request but the custom domain is still '$after'."
+            fi
+          else
+            echo "::warning title=Could not clear the custom domain::GITHUB_TOKEN was refused. Remove '$current' by hand under Settings → Pages → Custom domain."
+          fi
+
       # `enablement` turns Pages on for the repository if it is not already,
       # so a fresh clone deploys without anyone visiting the settings page.
       - uses: actions/configure-pages@v5
