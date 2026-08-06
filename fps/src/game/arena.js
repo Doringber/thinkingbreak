@@ -85,9 +85,11 @@ export function buildArena() {
   const cover = [
     [-6, -6, 2.0, 1.6, 2.0], [6, -6, 2.0, 1.6, 2.0],
     [-6, 6, 2.0, 1.1, 2.0], [6, 6, 2.0, 1.1, 2.0],
-    // Kept back from `playerSpawn` (0, 18) so the opening view is the arena,
-    // not the inside of a crate.
-    [0, -14, 3.0, 2.2, 1.2], [0, 10, 2.4, 1.4, 1.2],
+    // Split into two flanking blocks rather than one across the middle. A
+    // single crate at (0, 10) sat squarely between `playerSpawn` (0, 18) and
+    // the arena, so a player who had not moved yet could not see anything and
+    // nothing could see them.
+    [0, -14, 3.0, 2.2, 1.2], [-4.2, 11, 1.5, 1.4, 1.5], [4.2, 11, 1.5, 1.4, 1.5],
     [-15, 0, 1.2, 2.6, 4.0], [15, 0, 1.2, 2.6, 4.0],
     [10, 18, 2.4, 1.8, 2.4], [-10, 19, 2.4, 1.8, 2.4],
     [18, -14, 2.6, 3.0, 2.6],

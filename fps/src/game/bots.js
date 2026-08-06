@@ -2,8 +2,12 @@
 //
 // Deliberately navmesh-free. The arena is 48 x 48 with generous open lanes, so
 // bots steer directly toward a target and rely on three cheap behaviours to
-// stay unstuck: wall-slide from the shared collision sweep, a stuck detector
-// that re-picks a waypoint, and a hop when they have been pinned too long.
+// stay unstuck: wall-slide from the shared collision sweep, a hop when pinned,
+// and a lateral sidestep when the hop was not enough.
+//
+// Bots always close on the player. Without that, a player who stands still
+// behind cover sees nothing happen at all — and for a game meant to fill a
+// 20-second agent turn, "nothing happens" is the worst possible failure.
 
 import { hasLineOfSight, rayBox, sweepAxis } from './collision.js';
 import { pickSpawn } from './arena.js';
@@ -95,9 +99,44 @@ export function raycastBots(ox, oy, oz, dx, dy, dz, bots, maxDist) {
   return best;
 }
 
-function pickWaypoint(arena, bot, rng) {
-  const sp = pickSpawn(arena, { x: bot.x, z: bot.z }, rng);
-  return { x: sp.x, y: sp.y, z: sp.z };
+/**
+ * Where a bot heads when it cannot see the player.
+ *
+ * It closes in. This used to hand `pickSpawn` the bot's own position, which
+ * returns the spawn point *farthest away* — so losing sight made a bot sprint
+ * to the other side of the map. Two bots and a player who stood still behind
+ * cover produced a stalemate where nothing found anything.
+ *
+ * The jitter matters: without it every hunter converges on the identical point
+ * and they arrive as one clump from one angle.
+ */
+function huntTarget(bot, player, rng) {
+  const spread = 5;
+  return {
+    x: player.x + (rng() - 0.5) * 2 * spread,
+    y: 0,
+    z: player.z + (rng() - 0.5) * 2 * spread,
+  };
+}
+
+/**
+ * Where a snagged bot goes to free itself: a sidestep, perpendicular to the
+ * direction it was trying to travel.
+ *
+ * Sending it to a far spawn point instead would unstick it, but it also
+ * abandons the hunt for several seconds and reads as the bot losing interest
+ * mid-fight. Stepping around the obstacle keeps it in the encounter.
+ */
+function pickEscapePoint(bot, player, rng) {
+  const toPlayer = Math.atan2(player.x - bot.x, player.z - bot.z);
+  const side = rng() < 0.5 ? 1 : -1;
+  const angle = toPlayer + side * (Math.PI / 2);
+  const step = 6 + rng() * 4;
+  return {
+    x: bot.x + Math.sin(angle) * step,
+    y: 0,
+    z: bot.z + Math.cos(angle) * step,
+  };
 }
 
 /**
@@ -130,7 +169,7 @@ export function stepBot(bot, ctx, dt) {
   if (bot.state === 'seek') {
     if (!bot.target || now >= bot.nextRepathAt ||
         Math.hypot(bot.target.x - bot.x, bot.target.z - bot.z) < 2) {
-      bot.target = pickWaypoint(arena, bot, rng);
+      bot.target = huntTarget(bot, player, rng);
       bot.nextRepathAt = now + BOT.repathMs;
     }
   } else {
@@ -202,10 +241,10 @@ export function stepBot(bot, ctx, dt) {
     bot.lastPos = { x: bot.x, z: bot.z };
     bot.lastProgressAt = now;
   } else if (now - bot.lastProgressAt > BOT.stuckMs) {
-    // Hop first — most snags are a step edge. If that did not help, pick a new
-    // waypoint and re-aim entirely.
+    // Hop first — most snags are a step edge. If that did not help, aim
+    // somewhere else entirely so the bot stops grinding against the same face.
     if (bot.onGround) bot.vy = BOT.jumpVelocity;
-    bot.target = pickWaypoint(arena, bot, rng);
+    bot.target = pickEscapePoint(bot, player, rng);
     bot.nextRepathAt = now + BOT.repathMs;
     bot.strafeDir *= -1;
     bot.lastProgressAt = now;

@@ -450,6 +450,60 @@ test('bots move toward the player and stay inside the arena', () => {
   assert.ok(bot.y > arena.killFloor, 'did not fall out of the world');
 });
 
+test('a bot that cannot see the player hunts it instead of fleeing', () => {
+  // Regression: `seek` used to steer toward the spawn point farthest from the
+  // bot, so losing line of sight sent it to the other side of the map. A
+  // stationary player behind cover then produced a stalemate where neither
+  // side ever found the other.
+  const arena = buildArena();
+  _resetBotIds();
+
+  // Player tucked behind the big southern crate; bot far north with no sight.
+  const player = { x: 0, y: 1.8, z: 18, alive: true };
+  const bot = createBot({ x: 0, y: 0, z: -18 }, 'normal', rng);
+  assert.equal(
+    hasLineOfSight(bot.x, bot.y + BOT.eyeOffset, bot.z, player.x, player.y - 0.5, player.z, arena.solids),
+    false,
+    'precondition: the bot starts with no line of sight'
+  );
+
+  const startDistance = Math.hypot(bot.x - player.x, bot.z - player.z);
+  let now = 0;
+  let closest = startDistance;
+  // 20 s: crossing the arena at 5.4 u/s while wall-sliding around cover takes
+  // a while, and the point is that it arrives at all, not how fast.
+  for (let i = 0; i < 1200; i++) {
+    now += 1000 / 60;
+    stepBot(bot, { arena, player, now, difficulty: 'normal', rng }, 1 / 60);
+    closest = Math.min(closest, Math.hypot(bot.x - player.x, bot.z - player.z));
+  }
+
+  assert.ok(
+    closest < 12,
+    `the bot reached the player (${startDistance.toFixed(1)} -> ${closest.toFixed(1)})`
+  );
+});
+
+test('the player spawn has a clear line into the arena', () => {
+  // A stationary player must be able to see something to shoot at, and be
+  // seeable, or the round never starts.
+  const arena = buildArena();
+  const spawn = arena.playerSpawn;
+  const eyeY = spawn.y + PLAYER.standHeight + PLAYER.eyeOffset;
+
+  // Straight ahead down the spawn's facing direction (yaw 0 => -Z).
+  assert.ok(
+    hasLineOfSight(spawn.x, eyeY, spawn.z, spawn.x, eyeY, spawn.z - 20, arena.solids),
+    'nothing blocks the lane directly ahead of the spawn'
+  );
+
+  // And the centre of the arena is visible from the spawn.
+  assert.ok(
+    hasLineOfSight(spawn.x, eyeY, spawn.z, 0, 1.25, 0, arena.solids),
+    'the middle of the arena is visible from the spawn'
+  );
+});
+
 test('a bot cornered against geometry does not stay stuck', () => {
   const arena = buildArena();
   _resetBotIds();
