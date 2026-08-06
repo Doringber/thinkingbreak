@@ -39,6 +39,8 @@ export interface OpenGameOptions {
 let panel: vscode.WebviewPanel | undefined;
 let simpleBrowserOpen = false;
 let lastState: AgentState = "idle";
+/** True when the most recent open closed the side bars to make room for the game. */
+let hidPanelsForGame = false;
 
 /** Clear a lock left behind by a crashed or reloaded extension host. */
 export function clearStalePanelLock(): void {
@@ -171,8 +173,12 @@ export async function openGamePanel(url: string, options: OpenGameOptions = {}):
 
   if (isPanelOpenElsewhere()) return false;
 
-  if (hidePanels) await prepareWideLayout();
-  else await runCommand("workbench.action.focusFirstEditorGroup");
+  if (hidePanels) {
+    await prepareWideLayout();
+  } else {
+    hidPanelsForGame = false;
+    await runCommand("workbench.action.focusFirstEditorGroup");
+  }
 
   if (options.useSimpleBrowser) {
     try {
@@ -230,9 +236,24 @@ export function isPanelOpen(): boolean {
   return panel !== undefined || simpleBrowserOpen;
 }
 
-/** Hand focus back to the editor without tearing the session down. */
+/**
+ * Return the user to whatever they were doing before the game opened.
+ *
+ * `prepareWideLayout` closes the primary and secondary side bars to make room
+ * for the game — and one of those is commonly where an agent's chat panel
+ * lives. Only re-focusing the editor group here, as this used to do, left
+ * both bars closed with no visible way back to the conversation: the game
+ * would open on busy, but going idle never actually returned anything. Undo
+ * exactly what was closed, so a `hidePanelsWhenPlaying: false` setup — which
+ * never touched the side bars — is left alone.
+ */
 export async function returnFocusToEditor(): Promise<void> {
-  await runCommand("workbench.action.focusFirstEditorGroup");
+  if (hidPanelsForGame) {
+    await runCommand("workbench.action.focusSideBar");
+    await runCommand("workbench.action.focusAuxiliaryBar");
+  } else {
+    await runCommand("workbench.action.focusFirstEditorGroup");
+  }
 }
 
 /** Close the panel entirely. Only used by the explicit "close" command. */
@@ -244,6 +265,7 @@ export function closeGamePanel(): void {
     /* already disposed */
   }
   panel = undefined;
+  hidPanelsForGame = false;
   setPanelLock(false);
 }
 
@@ -257,6 +279,7 @@ async function runCommand(command: string): Promise<void> {
 
 /** Collapse side panels so the editor is wider than it is tall. */
 async function prepareWideLayout(): Promise<void> {
+  hidPanelsForGame = true;
   for (const command of [
     "workbench.action.closeAuxiliaryBar",
     "workbench.action.closeSidebar",

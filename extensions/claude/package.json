@@ -78,7 +78,7 @@
           ],
           "default": "pauseAndFocusEditor",
           "enumDescriptions": [
-            "Pause the game, save the session, and return focus to the editor (panel stays open so the next task resumes instantly).",
+            "Pause the game, save the session, and reopen whichever side bars were closed to make room for it \u2014 so you land back on the conversation, not a blank editor. (Panel stays open so the next task resumes instantly.)",
             "Pause the game and leave focus where it is.",
             "Pause the game and close the panel. The next task reopens it from the saved session."
           ],
