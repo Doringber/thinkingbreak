@@ -9,13 +9,16 @@ import { MODES, MODE_IDS } from '../game/modes.js';
 
 const $ = (id) => document.getElementById(id);
 
-export function createMenu({ onResume, onRestart, onModeChange, onSettingChange, getState }) {
+export function createMenu({
+  onResume, onRestart, onModeChange, onSettingChange, getState, onJoinRoom, onLeaveRoom,
+}) {
   const overlay = $('overlay');
   const panels = {
     pause: $('panel-pause'),
     modes: $('panel-modes'),
     settings: $('panel-settings'),
     gameover: $('panel-gameover'),
+    multiplayer: $('panel-multiplayer'),
   };
 
   let current = null;
@@ -143,6 +146,73 @@ export function createMenu({ onResume, onRestart, onModeChange, onSettingChange,
   bind('btn-again', 'click', () => { onRestart(); hide(); onResume(); });
   bind('btn-gameover-modes', 'click', () => { refreshModeCards(); show('modes'); });
 
+  // ── Multiplayer ────────────────────────────────────────────────────────────
+  bind('btn-multiplayer', 'click', () => { refreshMultiplayerPanel(); show('multiplayer'); });
+  bind('btn-multiplayer-back', 'click', () => show('pause'));
+
+  function currentRoomCodeInput() {
+    return $('mp-room-code')?.value ?? '';
+  }
+
+  bind('mp-join', 'click', () => onJoinRoom?.(currentRoomCodeInput()));
+  bind('mp-leave', 'click', () => onLeaveRoom?.());
+  $('mp-room-code')?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    onJoinRoom?.(currentRoomCodeInput());
+  });
+  // Room codes read as a single word; force the case as you type rather than
+  // making everyone remember it is case-sensitive.
+  $('mp-room-code')?.addEventListener('input', (e) => {
+    const upper = e.target.value.toUpperCase();
+    if (upper !== e.target.value) e.target.value = upper;
+  });
+
+  function refreshMultiplayerPanel() {
+    const codeInput = $('mp-room-code');
+    if (codeInput && !codeInput.value) codeInput.value = getState().roomCode ?? '';
+  }
+
+  function renderMultiplayerRoster(roster) {
+    const container = $('mp-roster');
+    if (!container) return;
+    container.replaceChildren();
+    if (!roster || roster.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'mp-empty';
+      empty.textContent = 'No one else here yet — share the room code with your team.';
+      container.appendChild(empty);
+      return;
+    }
+    for (const p of roster) {
+      const row = document.createElement('div');
+      row.className = 'mp-roster-row' + (p.alive === false ? ' roster-dead' : '');
+
+      const dot = document.createElement('span');
+      dot.className = 'roster-dot';
+      const [r, g, b] = p.color ?? [0.6, 0.6, 0.6];
+      dot.style.background = `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+
+      // textContent throughout: every field here can come straight from the
+      // network, and a crafted name must never be able to inject markup.
+      const name = document.createElement('span');
+      name.className = 'mp-roster-name';
+      name.textContent = p.name ?? '?';
+
+      const busy = p.agentState === 'busy';
+      const state = document.createElement('span');
+      state.className = 'mp-roster-state ' + (busy ? 'busy' : 'idle');
+      state.textContent = busy ? 'Agent working' : 'Agent idle';
+
+      const kills = document.createElement('span');
+      kills.className = 'mp-roster-kills';
+      kills.textContent = `${p.kills ?? 0} kills`;
+
+      row.append(dot, name, state, kills);
+      container.appendChild(row);
+    }
+  }
+
   return {
     get visible() { return visible; },
     get panel() { return current; },
@@ -183,5 +253,28 @@ export function createMenu({ onResume, onRestart, onModeChange, onSettingChange,
     showModes() { refreshModeCards(); show('modes'); },
     refreshSettings,
     hide,
+
+    /** Called by the game on every connection-status or roster change. */
+    multiplayerState(state) {
+      const statusEl = $('mp-status');
+      const joinBtn = $('mp-join');
+      const leaveBtn = $('mp-leave');
+      const codeInput = $('mp-room-code');
+
+      const label = {
+        disconnected: 'Not connected.',
+        connecting: 'Connecting…',
+        connected: `Connected — room ${state.roomCode}`,
+        error: state.error ?? 'Something went wrong.',
+      }[state.status] ?? '';
+      if (statusEl) {
+        statusEl.textContent = label;
+        statusEl.classList.toggle('mp-error', state.status === 'error');
+      }
+      joinBtn?.classList.toggle('hidden', state.status === 'connected' || state.status === 'connecting');
+      leaveBtn?.classList.toggle('hidden', state.status !== 'connected');
+      if (codeInput && state.roomCode && !codeInput.value) codeInput.value = state.roomCode;
+      renderMultiplayerRoster(state.roster);
+    },
   };
 }

@@ -160,6 +160,23 @@ difficulty-scaled reaction time and accuracy, take damage, die and respawn away
 from the player. Easy / Normal / Hard change health, damage, accuracy, reaction
 time, speed and score multiplier.
 
+## Multiplayer
+
+Optional, and off by default. Enter a **room code** in the pause menu's
+Multiplayer panel, share it with your team, and everyone who joins the same
+code shares one arena: you see each other move, shoot each other, and see a
+live roster of who's connected and whose agent is currently busy or idle —
+so you know when a teammate's arena just opened, not just your own.
+
+This is the one part of the project that isn't purely static — GitHub Pages
+can't hold a live connection open between players, so it talks to a small
+free [Firebase](https://firebase.google.com/) project you provision yourself.
+Nothing else needs it, single-player included, and it costs nothing to leave
+unconfigured: the panel just says so. **[docs/MULTIPLAYER.md](docs/MULTIPLAYER.md)**
+covers the five-minute setup, the security rules it expects, and the trust
+model (client-authoritative, suited to a team behind a shared code — not to
+strangers on the internet).
+
 ## Controls
 
 | Input | Action |
@@ -210,9 +227,14 @@ thinkingbreak/
 │       ├── ui/
 │       │   ├── hud.js
 │       │   └── menu.js
-│       └── lifecycle/
-│           ├── agentState.js  Busy/idle state machine (pure)
-│           └── bridge.js      postMessage / BroadcastChannel / storage / URL
+│       ├── lifecycle/
+│       │   ├── agentState.js  Busy/idle state machine (pure)
+│       │   └── bridge.js      postMessage / BroadcastChannel / storage / URL
+│       └── multiplayer/       Opt-in — see docs/MULTIPLAYER.md
+│           ├── protocol.js    Room codes, throttling, interpolation, damage (pure)
+│           ├── connection.js  Firebase wrapper, dynamically imported on join
+│           └── firebaseConfig.js
+├── docs/MULTIPLAYER.md        Multiplayer setup, security rules, trust model
 ├── extensions/
 │   ├── shared/                One implementation, three extensions
 │   │   ├── activation.ts      Status bar, commands, watcher wiring
@@ -224,6 +246,7 @@ thinkingbreak/
 │   ├── build.js               Verify + parse + compile
 │   ├── build-extensions.js    Sync shared sources, run tsc
 │   ├── verify-paths.js        Base-path and branding guard
+│   ├── verify-live.js         Real-browser check against a deployed URL
 │   ├── screenshots.js         Regenerate the README screenshots
 │   └── make_icon.py           Regenerate the extension icon
 ├── tests/                     node:test, no framework
@@ -240,8 +263,11 @@ Nothing needs a scene graph, a material system, or a loader.
 
 Three.js would have added roughly 600 KB of download for features this game
 does not use. The hand-rolled WebGL2 renderer is about 8 KB, and the whole game
-page is **≈160 KB uncompressed with zero dependencies** — which is what makes it
-start fast enough to be worth opening for a 20-second agent turn.
+page is **≈190 KB uncompressed with zero dependencies** — which is what makes
+it start fast enough to be worth opening for a 20-second agent turn. That's
+single-player; opting into [multiplayer](docs/MULTIPLAYER.md) fetches the
+Firebase SDK on top of it, but only at the moment you actually join a room —
+never before, and never at all if you don't.
 
 ### Performance
 
@@ -272,7 +298,7 @@ for the rest of the page load instead of failing.
 npm install
 npm run serve             # dev server at /thinkingbreak/
 npm run build             # verify paths, parse modules, compile extensions
-npm test                  # 100 tests, node:test, no framework
+npm test                  # 129 tests, node:test, no framework
 npm run verify:paths      # base-path and branding guard on its own
 npm run build:extensions  # just the three extensions
 npm run check             # build + test
@@ -316,9 +342,10 @@ syncs it into each extension's git-ignored `src/shared/` before `tsc` runs.
 |---|---|
 | `weapons.test.js` | Damage, falloff, headshots, fire-rate limits, spread, recoil, reload, ammo |
 | `modes.test.js` | Scoring, streaks, difficulty, mode timers, round advance, win/lose conditions |
-| `persistence.test.js` | Save round-trip, v1→v3 migrations, corruption, clamping, hostile storage |
+| `persistence.test.js` | Save round-trip, v1→v4 migrations, corruption, clamping, hostile storage |
 | `lifecycle.test.js` | Busy→idle, idle→busy, duplicate suppression, event storms, grace window, boot config |
 | `world.test.js` | Collision, swept-AABB tunnelling, raycasts, movement, jump pads, bots, stuck recovery |
+| `multiplayer.test.js` | Room codes, publish throttling, interpolation, damage math, snapshot sanitisation, roster |
 
 ## Deployment
 
@@ -428,8 +455,12 @@ jump pad may overlap the player spawn.
   `useSimpleBrowser: true` falls back to reload-based resume. The default
   webview panel does not have this limitation.
 - **Codex hook support varies by version.** Hence three detection layers.
-- **No multiplayer, one arena, no leaderboard.** By design — it is a break, not
-  a second job.
+- **One arena, no cross-room leaderboard.** By design — it is a break, not a
+  second job.
+- **Multiplayer has no server-authoritative hit detection**, does not network
+  crouch height, and treats a PvP kill like a bot kill for mode/score
+  progression. See [docs/MULTIPLAYER.md](docs/MULTIPLAYER.md#known-limitations)
+  for the full list and why the trust model is what it is.
 
 ## Migration and attribution
 

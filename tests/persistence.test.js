@@ -99,6 +99,32 @@ test('a v2 save migrates to the current version', () => {
   assert.equal(migrated.highScore, undefined);
 });
 
+test('a v3 save migrates to v4 with multiplayer defaults backfilled', () => {
+  const v3 = { version: 3, mode: 'survival', round: 2, score: 300, highScores: { survival: 300 } };
+  const migrated = normalizeSave(v3);
+  assert.equal(migrated.version, SAVE_VERSION);
+  assert.equal(migrated.round, 2);
+  assert.deepEqual(migrated.multiplayer, { roomCode: '', autoJoin: false });
+});
+
+test('a room code is normalized the same way join-time validation expects', () => {
+  const save = normalizeSave({
+    version: SAVE_VERSION,
+    multiplayer: { roomCode: ' acme-team! ', autoJoin: true },
+  });
+  assert.equal(save.multiplayer.roomCode, 'ACMETEAM');
+  assert.equal(save.multiplayer.autoJoin, true);
+});
+
+test('an oversized or malformed room code is capped rather than rejected outright', () => {
+  const save = normalizeSave({
+    version: SAVE_VERSION,
+    multiplayer: { roomCode: 'x'.repeat(500), autoJoin: 'yes' },
+  });
+  assert.equal(save.multiplayer.roomCode.length, 12);
+  assert.equal(save.multiplayer.autoJoin, false, 'a non-boolean falls back to the default');
+});
+
 test('a save from a newer build is reset rather than misread', () => {
   const future = normalizeSave({ version: SAVE_VERSION + 5, score: 99_999, mode: 'unknown-mode' });
   assert.equal(future.version, SAVE_VERSION);

@@ -6,7 +6,7 @@
 // working game.
 
 export const STORAGE_KEY = 'thinking-break/save';
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export const DEFAULT_SAVE = Object.freeze({
   version: SAVE_VERSION,
@@ -33,6 +33,12 @@ export const DEFAULT_SAVE = Object.freeze({
     invertY: false,
     fov: 90,
     showFps: false,
+  },
+  // The Firebase config itself is never stored here — only the team's room
+  // code, which is a preference, not a secret.
+  multiplayer: {
+    roomCode: '',
+    autoJoin: false,
   },
   savedAt: 0,
 });
@@ -64,6 +70,11 @@ const MIGRATIONS = {
     }
     delete out.highScore;
     return out;
+  },
+  // v3 predates multiplayer entirely — nothing to carry forward but the
+  // version bump, since there was no room code to have had.
+  3(save) {
+    return { ...save, version: 4, multiplayer: { roomCode: '', autoJoin: false } };
   },
 };
 
@@ -104,6 +115,13 @@ export function normalizeSave(raw) {
 
   const settings = isPlainObject(save.settings) ? save.settings : {};
   const progress = isPlainObject(save.progress) ? save.progress : {};
+  const multiplayer = isPlainObject(save.multiplayer) ? save.multiplayer : {};
+  // Mirrors protocol.js's normalizeRoomCode without importing it — storage
+  // stays a leaf module with no dependency on a specific feature area, and a
+  // stricter 4-12 character format check still happens at join time.
+  const roomCode = typeof multiplayer.roomCode === 'string'
+    ? multiplayer.roomCode.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12)
+    : '';
 
   const out = {
     version: SAVE_VERSION,
@@ -129,6 +147,10 @@ export function normalizeSave(raw) {
       invertY: bool(settings.invertY, base.settings.invertY),
       fov: num(settings.fov, base.settings.fov, 60, 120),
       showFps: bool(settings.showFps, base.settings.showFps),
+    },
+    multiplayer: {
+      roomCode,
+      autoJoin: bool(multiplayer.autoJoin, false),
     },
     savedAt: num(save.savedAt, 0, 0, 1e15),
   };

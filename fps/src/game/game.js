@@ -9,7 +9,7 @@ import { createInput } from '../core/input.js';
 import { createAudio } from '../core/audio.js';
 import { clamp, forwardFrom, makeRng } from '../core/math.js';
 import { buildArena, pickSpawn } from './arena.js';
-import { boxNormalAt, raycastSolids } from './collision.js';
+import { boxNormalAt, raycastSolids, rayBox } from './collision.js';
 import { createEffects } from './effects.js';
 import {
   BOT, botBox, createBot, damageBot, raycastBots, respawnBot, stepBot,
@@ -26,6 +26,10 @@ import {
   cancelReload, canFire, createLoadout, cycleWeapon, damageAt, finishReload,
   fire, giveAmmo, isReloading, startReload, weaponDef, WEAPONS,
 } from './weapons.js';
+import {
+  buildSnapshot, colorForId, createInterpolator, createPublishGate,
+  sanitizeSnapshot, summarizeRoster,
+} from '../multiplayer/protocol.js';
 
 const FOG_COLOR = [0.043, 0.051, 0.078];
 const MAX_FRAME_MS = 50;      // clamp the first frame after a resume
@@ -102,6 +106,24 @@ export class Game {
     this.userGestured = false;
     this.muzzleFlashUntil = 0;
 
+    // ── Multiplayer ──────────────────────────────────────────────────────────
+    // `multiplayer` is the live connection.js session handle, or null when not
+    // connected — every multiplayer code path below is a no-op in that case,
+    // so single-player is entirely unaffected by any of this.
+    this.multiplayer = null;
+    this.multiplayerStatus = 'disconnected'; // disconnected | connecting | connected | error
+    this.multiplayerError = null;
+    this.remotePlayers = createInterpolator();
+    this.multiplayerPublishGate = createPublishGate({ intervalMs: 90 });
+    // id -> performance.now() of our most recent hit on that player, so a
+    // kill observed a moment later (once *their* client applies the damage
+    // and publishes alive:false) can still be credited to the right shooter.
+    this.pendingRemoteHits = new Map();
+    // Fed by the agent lifecycle bridge via setAgentState(); published in every
+    // snapshot so teammates see when this player's agent starts or stops
+    // working, not just when their own arena opens.
+    this.agentState = 'idle';
+
     this.input = createInput(canvas, { onAction: (name, payload) => this.onInputAction(name, payload) });
 
     this._loop = this._loop.bind(this);
@@ -159,6 +181,13 @@ export class Game {
     this.input.clearKeys();
     this.input.releaseLock();
     this.audio.suspend();
+    // The publish loop only runs inside update(), which just stopped — without
+    // this, teammates would keep seeing this player as "busy" forever, since
+    // no further snapshot would ever be sent to say otherwise.
+    if (this.multiplayer) {
+      this.multiplayerPublishGate.reset();
+      this.updateMultiplayerPublish(performance.now());
+    }
     this.persist();
     this.menu?.setPaused(true, reason);
     return true;
@@ -170,6 +199,7 @@ export class Game {
 
   destroy() {
     this.pause('destroy');
+    void this.leaveMultiplayer();
     this.input.dispose();
     this.audio.dispose();
     this.renderer.dispose();
@@ -262,8 +292,9 @@ export class Game {
   spawnBotsForMode() {
     const mode = getMode(this.mode.modeId);
     const want = mode.concurrentBots(this.mode.round);
+    const remotePoints = this.liveRemotePlayerPoints(performance.now());
     while (this.bots.length < want) {
-      const spawn = pickSpawn(this.arena, this.player, this.rng, this.bots);
+      const spawn = pickSpawn(this.arena, this.player, this.rng, [...this.bots, ...remotePoints]);
       this.bots.push(createBot(spawn, this.settings.difficulty, this.rng));
     }
     this.bots.length = Math.min(this.bots.length, want);
@@ -292,6 +323,198 @@ export class Game {
     this.loadout.current = id;
     this.hud.toast(weaponDef(id).name, 900);
     return true;
+  }
+
+  // ── Multiplayer ────────────────────────────────────────────────────────────
+  // A shared team room code, not authentication: anyone with the code joins
+  // the same arena. connection.js and the Firebase SDK are dynamically
+  // imported here, on first use only, so a single-player session never pays
+  // for either.
+
+  /** Called by the agent lifecycle bridge on every busy/idle transition. */
+  setAgentState(state) {
+    this.agentState = state === 'busy' ? 'busy' : 'idle';
+  }
+
+  async joinMultiplayer(roomCode) {
+    if (this.multiplayer) await this.leaveMultiplayer();
+    this.multiplayerStatus = 'connecting';
+    this.multiplayerError = null;
+    this.menu?.multiplayerState?.(this.multiplayerSnapshot());
+
+    try {
+      const [{ joinRoom }, { firebaseConfig }] = await Promise.all([
+        import('../multiplayer/connection.js'),
+        import('../multiplayer/firebaseConfig.js'),
+      ]);
+      const session = await joinRoom({
+        config: firebaseConfig,
+        roomCode,
+        onRoster: (players, localId) => this.onMultiplayerRoster(players, localId),
+        onIncomingHit: (amount, fromId) => this.onRemoteHit(amount, fromId),
+        onError: (err) => {
+          this.multiplayerStatus = 'error';
+          this.multiplayerError = err?.message ?? String(err);
+          this.menu?.multiplayerState?.(this.multiplayerSnapshot());
+        },
+      });
+
+      this.multiplayer = session;
+      this.multiplayerStatus = 'connected';
+      this.multiplayerPublishGate.reset();
+      this.save.multiplayer = { roomCode: session.roomCode, autoJoin: true };
+      this.store.save(this.save);
+      this.menu?.multiplayerState?.(this.multiplayerSnapshot());
+      return { ok: true, roomCode: session.roomCode };
+    } catch (err) {
+      this.multiplayerStatus = 'error';
+      this.multiplayerError = err?.message ?? String(err);
+      this.menu?.multiplayerState?.(this.multiplayerSnapshot());
+      return { ok: false, error: this.multiplayerError };
+    }
+  }
+
+  async leaveMultiplayer() {
+    const session = this.multiplayer;
+    this.multiplayer = null;
+    this.multiplayerStatus = 'disconnected';
+    this.multiplayerError = null;
+    this.remotePlayers.clear();
+    this.pendingRemoteHits.clear();
+    this.hud.roster?.([]);
+    this.save.multiplayer = { ...this.save.multiplayer, autoJoin: false };
+    this.store.save(this.save);
+    this.menu?.multiplayerState?.(this.multiplayerSnapshot());
+    if (session) {
+      try {
+        await session.leave();
+      } catch {
+        /* connection may already be gone */
+      }
+    }
+  }
+
+  multiplayerSnapshot() {
+    return {
+      status: this.multiplayerStatus,
+      error: this.multiplayerError,
+      roomCode: this.multiplayer?.roomCode ?? this.save.multiplayer.roomCode,
+      roster: summarizeRoster(this.multiplayer?.getRoster(), this.multiplayer?.playerId),
+    };
+  }
+
+  onMultiplayerRoster(players, localId) {
+    const now = performance.now();
+    const seen = new Set();
+
+    for (const [id, raw] of Object.entries(players ?? {})) {
+      if (id === localId) continue;
+      const snap = sanitizeSnapshot(raw);
+      if (!snap) continue;
+      seen.add(id);
+
+      const prev = this.remotePlayers.sample(id, now);
+      this.remotePlayers.push(id, { ...snap, t: now });
+
+      if (prev && prev.alive && !snap.alive) {
+        const hitAt = this.pendingRemoteHits.get(id);
+        if (hitAt !== undefined && now - hitAt < 3000) this.onEliminatedRemotePlayer(id, snap);
+        this.pendingRemoteHits.delete(id);
+      }
+    }
+
+    for (const id of this.remotePlayers.ids()) {
+      if (!seen.has(id)) {
+        this.remotePlayers.remove(id);
+        this.pendingRemoteHits.delete(id);
+      }
+    }
+
+    this.hud.roster?.(summarizeRoster(players, localId));
+    this.menu?.multiplayerState?.(this.multiplayerSnapshot());
+  }
+
+  onEliminatedRemotePlayer(id, snap) {
+    const points = registerKill(this.mode, { headshot: false, difficulty: this.settings.difficulty, distance: 0 });
+    this.hud.killfeed(`ELIMINATED ${snap.name ?? `PLAYER ${id.slice(0, 5).toUpperCase()}`} +${points}`);
+    this.audio.kill();
+    this.syncModeWeapon();
+  }
+
+  /** Live positions to steer spawns and bot placement away from. */
+  liveRemotePlayerPoints(now) {
+    return this.remotePlayers.ids()
+      .map((id) => this.remotePlayers.sample(id, now))
+      .filter((s) => s && s.alive !== false)
+      .map((s) => ({ x: s.x, z: s.z }));
+  }
+
+  updateMultiplayerPublish(now) {
+    if (!this.multiplayer) return;
+    const p = this.player;
+    const { def } = this.currentWeapon;
+    // player.js's p.y is the top of the collision box; remote clients render
+    // and hit-test this player as a bot-sized box, so publish the equivalent
+    // centre rather than the raw value — otherwise every teammate sees us
+    // floating above (or sunk into) the floor.
+    const netY = (p.y - p.height) + BOT.halfHeight;
+    const snapshot = buildSnapshot({
+      x: p.x, y: netY, z: p.z, yaw: p.yaw,
+      health: p.health, weapon: def.id, alive: p.alive,
+      agentState: this.agentState, kills: this.mode.kills,
+      name: null, t: Date.now(),
+    });
+    if (this.multiplayerPublishGate.shouldPublish(now, snapshot)) {
+      this.multiplayer.publish(snapshot);
+    }
+  }
+
+  /** Nearest remote player along a ray, box-tested like a bot. */
+  raycastRemotePlayers(ox, oy, oz, dx, dy, dz, maxDist, now) {
+    let best = null;
+    for (const id of this.remotePlayers.ids()) {
+      const snap = this.remotePlayers.sample(id, now);
+      if (!snap || snap.alive === false) continue;
+      const body = { x: snap.x, y: snap.y, z: snap.z, hx: BOT.halfWidth, hy: BOT.halfHeight, hz: BOT.halfWidth };
+      const t = rayBox(ox, oy, oz, dx, dy, dz, body, maxDist);
+      if (t === null) continue;
+      if (best && t >= best.dist) continue;
+      const headHy = BOT.halfHeight * BOT.headFraction * 0.5;
+      const head = {
+        x: snap.x, y: snap.y + BOT.halfHeight - headHy, z: snap.z,
+        hx: BOT.halfWidth * 0.72, hy: headHy, hz: BOT.halfWidth * 0.72,
+      };
+      const headHit = rayBox(ox, oy, oz, dx, dy, dz, head, maxDist);
+      best = { id, snap, dist: t, headshot: headHit !== null };
+    }
+    return best;
+  }
+
+  damageRemotePlayerFromShot(def, remoteHit, dir, eye, now) {
+    if (!this.multiplayer) return;
+    const mode = getMode(this.mode.modeId);
+    const { id, dist, headshot } = remoteHit;
+    const damage = mode.oneHitKills ? PLAYER.maxHealth : damageAt(def, dist, headshot);
+
+    const hx = eye[0] + dir[0] * dist, hy = eye[1] + dir[1] * dist, hz = eye[2] + dir[2] * dist;
+    this.effects.spawnBlood(hx, hy, hz, colorForId(id), this.particleQuality === 'low' ? 3 : 8);
+
+    this.pendingRemoteHits.set(id, now);
+    void this.multiplayer.reportHit(id, damage);
+  }
+
+  /** Damage that arrived over the network — the counterpart to onBotShot. */
+  onRemoteHit(amount, fromId) {
+    if (!this.player.alive) return;
+    damagePlayer(this.player, amount);
+    this.hud.damageFlash();
+    this.audio.hurt();
+    this.mode.streak = 0;
+    if (!this.player.alive) {
+      const shooter = this.remotePlayers.sample(fromId, performance.now());
+      this.hud.killfeed(`ELIMINATED by ${shooter?.name ?? 'a teammate'}`);
+      this.onPlayerDied();
+    }
   }
 
   // ── Input actions ─────────────────────────────────────────────────────────
@@ -450,6 +673,8 @@ export class Game {
     }
 
     if (this.mode.over && !this.gameOverAt) this.onGameOver(now);
+
+    this.updateMultiplayerPublish(now);
   }
 
   shoot(def, state, now) {
@@ -473,14 +698,22 @@ export class Game {
 
     for (const ray of shot.rays) {
       const dir = forwardFrom(p.yaw + ray.yawOffset, clamp(p.pitch + ray.pitchOffset, -1.55, 1.55));
-      const alive = this.bots.filter((b) => b.alive);
+      const aliveBots = this.bots.filter((b) => b.alive);
 
       const solidHit = raycastSolids(eye[0], eye[1], eye[2], dir[0], dir[1], dir[2], this.arena.solids, def.range);
-      const botHit = raycastBots(eye[0], eye[1], eye[2], dir[0], dir[1], dir[2], alive, def.range);
+      const botHit = raycastBots(eye[0], eye[1], eye[2], dir[0], dir[1], dir[2], aliveBots, def.range);
+      const remoteHit = this.multiplayer
+        ? this.raycastRemotePlayers(eye[0], eye[1], eye[2], dir[0], dir[1], dir[2], def.range, now)
+        : null;
 
       const wallDist = solidHit?.dist ?? def.range;
-      const hitsBot = botHit && botHit.dist < wallDist;
-      const endDist = Math.min(hitsBot ? botHit.dist : def.range, wallDist);
+      // Nearest of a bot or a remote player, but never past a wall in the way.
+      let target = null;
+      if (botHit && botHit.dist < wallDist) target = { kind: 'bot', dist: botHit.dist, data: botHit };
+      if (remoteHit && remoteHit.dist < wallDist && (!target || remoteHit.dist < target.dist)) {
+        target = { kind: 'remote', dist: remoteHit.dist, data: remoteHit };
+      }
+      const endDist = Math.min(target ? target.dist : def.range, wallDist);
 
       // The railgun draws its full beam; everything else gets a short streak,
       // because a box can only yaw and a long one visibly misses the pitch.
@@ -491,10 +724,14 @@ export class Game {
         def.color, def.id === 'railgun' ? 0.035 : 0.012, def.id === 'railgun' ? 0.16 : 0.045
       );
 
-      if (hitsBot) {
+      if (target?.kind === 'bot') {
         anyHit = true;
-        if (botHit.headshot) anyHead = true;
-        this.damageBotFromShot(def, botHit, dir, eye, now);
+        if (target.data.headshot) anyHead = true;
+        this.damageBotFromShot(def, target.data, dir, eye, now);
+      } else if (target?.kind === 'remote') {
+        anyHit = true;
+        if (target.data.headshot) anyHead = true;
+        this.damageRemotePlayerFromShot(def, target.data, dir, eye, now);
       } else if (solidHit) {
         const hx = eye[0] + dir[0] * solidHit.dist;
         const hy = eye[1] + dir[1] * solidHit.dist;
@@ -563,7 +800,8 @@ export class Game {
     const mode = getMode(this.mode.modeId);
     if (!mode.playerLives) {
       // Untimed-death modes just put the player back in play immediately.
-      const spawn = pickSpawn(this.arena, { x: -this.player.x, z: -this.player.z }, this.rng);
+      const occupied = [...this.bots.filter((b) => b.alive), ...this.liveRemotePlayerPoints(performance.now())];
+      const spawn = pickSpawn(this.arena, { x: -this.player.x, z: -this.player.z }, this.rng, occupied);
       respawnPlayer(this.player, { ...spawn, y: spawn.y + PLAYER.standHeight });
       this.hud.banner('Respawned', 800);
     }
@@ -656,6 +894,21 @@ export class Game {
       const frac = bot.health / bot.maxHealth;
       r.push(b.x, b.y + b.hy + 0.35, b.z, 0.3 * frac, 0.045, 0.045,
         1 - frac, frac, 0.25, bot.yaw);
+    }
+
+    for (const id of this.remotePlayers.ids()) {
+      const snap = this.remotePlayers.sample(id, now);
+      if (!snap || snap.alive === false) continue;
+      const [cr, cg, cb] = colorForId(id);
+      // Drawn at the same box sizes raycastRemotePlayers hit-tests against —
+      // any mismatch here would make a player look hit when the shot missed.
+      r.push(snap.x, snap.y - 0.18, snap.z, BOT.halfWidth, BOT.halfHeight * 0.72, BOT.halfWidth,
+        cr * 0.8, cg * 0.8, cb * 0.8, snap.yaw);
+      r.push(snap.x, snap.y + BOT.halfHeight - 0.22, snap.z, 0.26, 0.22, 0.26, cr, cg, cb, snap.yaw);
+      const frac = Math.max(0, Math.min(1, snap.health / PLAYER.maxHealth));
+      r.push(snap.x, snap.y + BOT.halfHeight + 0.35, snap.z, 0.3 * frac, 0.045, 0.045, 1 - frac, frac, 0.25, snap.yaw);
+      // A small marker distinguishes a real teammate from an AI bot at a glance.
+      r.push(snap.x, snap.y + BOT.halfHeight + 0.55, snap.z, 0.08, 0.08, 0.08, 0.3, 0.9, 1.0);
     }
 
     for (const pickup of this.pickups) {

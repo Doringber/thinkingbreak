@@ -52,6 +52,8 @@
 
   <div id="killfeed" class="killfeed" aria-live="polite"></div>
 
+  <div id="roster" class="roster" aria-label="Teammates in this room"></div>
+
   <div id="crosshair" class="crosshair" aria-hidden="true">
     <span class="ch ch-t"></span><span class="ch ch-b"></span>
     <span class="ch ch-l"></span><span class="ch ch-r"></span>
@@ -94,6 +96,7 @@
       <div class="panel-actions">
         <button id="btn-resume" class="btn btn-primary">Play</button>
         <button id="btn-modes" class="btn">Game modes</button>
+        <button id="btn-multiplayer" class="btn">Multiplayer</button>
         <button id="btn-settings" class="btn">Settings</button>
         <button id="btn-restart" class="btn btn-quiet">Restart round</button>
       </div>
@@ -120,6 +123,32 @@
       <p class="panel-sub">Each one is sized for a single agent turn.</p>
       <div id="mode-list" class="mode-list"></div>
       <button id="btn-modes-back" class="btn btn-quiet">Back</button>
+    </section>
+
+    <section id="panel-multiplayer" class="panel hidden">
+      <h2 class="panel-title">Multiplayer</h2>
+      <p class="panel-sub">
+        Everyone with your team's room code shares one arena — see each other,
+        shoot each other, and see whose agent is working right now.
+      </p>
+
+      <label class="field">
+        <span class="field-label">Room code</span>
+        <input id="mp-room-code" type="text" maxlength="12" autocomplete="off"
+               autocapitalize="characters" spellcheck="false"
+               placeholder="e.g. ACME2026" />
+      </label>
+
+      <div class="panel-actions">
+        <button id="mp-join" class="btn btn-primary">Join room</button>
+        <button id="mp-leave" class="btn btn-quiet hidden">Leave room</button>
+      </div>
+
+      <p id="mp-status" class="panel-sub mp-status">Not connected.</p>
+
+      <div id="mp-roster" class="mp-roster" aria-live="polite"></div>
+
+      <button id="btn-multiplayer-back" class="btn btn-quiet">Back</button>
     </section>
 
     <section id="panel-settings" class="panel hidden">

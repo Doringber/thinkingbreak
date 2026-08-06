@@ -37,6 +37,8 @@ try {
     onRestart: () => game.restart(),
     onModeChange: (modeId) => game.restart(modeId),
     onSettingChange: (patch) => game.updateSettings(patch),
+    onJoinRoom: (code) => { void game.joinMultiplayer(code); },
+    onLeaveRoom: () => { void game.leaveMultiplayer(); },
     getState: () => ({
       modeId: game?.mode.modeId ?? 'survival',
       modeName: getMode(game?.mode.modeId ?? 'survival').name,
@@ -44,11 +46,19 @@ try {
       round: game?.mode.round ?? 1,
       highScores: game?.save.highScores ?? {},
       settings: game?.settings ?? store.load().settings,
+      roomCode: game?.save.multiplayer?.roomCode ?? '',
     }),
   });
 
   game = new Game({ canvas, hud, store, menu, embedded: boot.embedded });
   menu.refreshSettings();
+
+  // Rejoin the team room automatically if this player was in one last time —
+  // otherwise every reload (every editor-panel resume) would mean retyping
+  // the code before teammates can see each other again.
+  if (game.save.multiplayer?.autoJoin && game.save.multiplayer?.roomCode) {
+    void game.joinMultiplayer(game.save.multiplayer.roomCode);
+  }
 
   // ── Agent lifecycle ─────────────────────────────────────────────────────
   bridge = createAgentBridge({
@@ -68,7 +78,10 @@ try {
       game.pause('agent');
       hud.agentStatus('idle');
     },
-    onStatus: (state) => hud.agentStatus(state),
+    onStatus: (state) => {
+      hud.agentStatus(state);
+      game.setAgentState(state);
+    },
   });
 
   document.body.classList.toggle('embedded', boot.embedded);

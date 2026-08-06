@@ -32,6 +32,7 @@ export function createHud() {
     fps: $('fps-counter'),
     killfeed: $('killfeed'),
     streak: $('streak'),
+    roster: $('roster'),
   };
 
   const cache = new Map();
@@ -154,6 +155,44 @@ export function createHud() {
 
     setVisible(visible) {
       el.root?.classList.toggle('hidden', !visible);
+    },
+
+    /**
+     * The live teammate list. Every field here can come straight from the
+     * network, so this builds real DOM nodes and sets `.textContent` rather
+     * than interpolating into `innerHTML` — a crafted display name must never
+     * be able to inject markup into another player's page.
+     */
+    roster(list) {
+      if (!el.roster) return;
+      if (!list || list.length === 0) {
+        el.roster.classList.remove('show');
+        el.roster.replaceChildren();
+        return;
+      }
+      el.roster.classList.add('show');
+      const rows = list.slice(0, 8).map((p) => {
+        const row = document.createElement('div');
+        row.className = 'roster-row' + (p.alive === false ? ' roster-dead' : '');
+
+        const dot = document.createElement('span');
+        dot.className = 'roster-dot';
+        const [r, g, b] = p.color ?? [0.6, 0.6, 0.6];
+        dot.style.background = `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+
+        const name = document.createElement('span');
+        name.className = 'roster-name';
+        name.textContent = p.name ?? '?';
+
+        const agent = document.createElement('span');
+        const busy = p.agentState === 'busy';
+        agent.className = 'roster-agent ' + (busy ? 'busy' : 'idle');
+        agent.title = busy ? 'Agent working' : 'Agent idle';
+
+        row.append(dot, name, agent);
+        return row;
+      });
+      el.roster.replaceChildren(...rows);
     },
 
     dispose() {

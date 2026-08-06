@@ -427,6 +427,81 @@ input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer;
   font-weight: 700;
 }
 
+/* ── Multiplayer ─────────────────────────────────────────────────────────── */
+
+/* Live teammate strip, shown during play whenever a room is joined. */
+.roster {
+  position: absolute;
+  top: 60px; left: 22px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 200px;
+}
+.roster.show { display: flex; }
+.roster-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  background: rgba(17, 21, 32, 0.72);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--text);
+}
+.roster-row.roster-dead { opacity: 0.45; }
+.roster-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.roster-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.roster-agent {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.roster-agent.busy { background: var(--green); animation: pulse 1.4s ease-in-out infinite; }
+.roster-agent.idle { background: var(--muted); }
+
+/* Room-join panel. */
+input[type="text"] {
+  width: 100%;
+  padding: 10px 13px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+}
+input[type="text"]:focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 1px; }
+.mp-status { font-family: var(--mono); }
+.mp-status.mp-error { color: var(--red); }
+.mp-roster { display: flex; flex-direction: column; gap: 7px; max-height: 220px; overflow-y: auto; }
+.mp-roster-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+.mp-roster-row.roster-dead { opacity: 0.5; }
+.mp-roster-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-roster-state { font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; }
+.mp-roster-state.busy { color: var(--green); }
+.mp-roster-state.idle { color: var(--muted); }
+.mp-roster-kills { font-size: 0.7rem; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
+.mp-empty { font-size: 0.82rem; color: var(--muted); padding: 10px 2px; }
+
 .debug-bar {
   position: fixed;
   bottom: 10px; left: 12px;
@@ -462,6 +537,7 @@ body.embedded .hud-score { font-size: 1.3rem; }
 body.embedded .health-value, body.embedded .ammo { font-size: 1.15rem; }
 body.embedded .panel { padding: 20px; }
 body.embedded .agent-status { top: 46px; }
+body.embedded .roster { top: 44px; }
 
 @media (max-height: 520px) {
   .controls { display: none; }
