@@ -311,7 +311,29 @@ verifies paths and runs the tests, then publishes the tree as-is.
 **Every path in the project is relative.** `tools/verify-paths.js` fails the
 build on a root-absolute `src`/`href`/`url()`, on a reference to a file that
 does not exist, on a bare ES module specifier, and on a Pages URL outside
-`/thinkingbreak/`. Repository settings: **Pages → Source → GitHub Actions**.
+`/thinkingbreak/`.
+
+### First-time Pages setup
+
+Two things have to be right, and neither can be fixed from a workflow:
+
+1. **Settings → Pages → Source → GitHub Actions.** Until this is set,
+   `actions/configure-pages` fails with *"Create Pages site failed. Resource
+   not accessible by integration"*. The workflow passes `enablement: true`,
+   which asks GitHub to create the site automatically — but a workflow's
+   `GITHUB_TOKEN` is not permitted to create a Pages site, so the first
+   enablement is always a manual step by the repository owner.
+
+2. **Leave Custom domain empty.** A custom domain makes GitHub serve the site
+   at that domain's *root* instead of `/thinkingbreak/`, and
+   `doringber.github.io/thinkingbreak/` then redirects to it. The relative
+   paths in the game survive that move, but every absolute
+   `https://doringber.github.io/thinkingbreak/…` link — the install command,
+   the extensions' default `gameUrl` — would point at the wrong host. An
+   invalid domain is worse: nothing resolves at all. If you do want a custom
+   domain, update `DEFAULT_GAME_URL` in `extensions/shared/activation.ts`, the
+   URLs in the installer scripts, and `BASE_URL` in `tools/verify-paths.js` to
+   match.
 
 ## Extending
 
