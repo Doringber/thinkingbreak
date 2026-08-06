@@ -66,7 +66,9 @@ jobs:
 
           echo "custom domain currently set to: $current"
           echo "clearing it so the site serves from the default domain…"
-          if printf '{"cname":null}' | gh api -X PUT "repos/$GITHUB_REPOSITORY/pages" --input - ; then
+          # Clearing a custom domain also resets https_enforced, so turn it
+          # back on in the same call — *.github.io always supports HTTPS.
+          if printf '{"cname":null,"https_enforced":true}' | gh api -X PUT "repos/$GITHUB_REPOSITORY/pages" --input - ; then
             after=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq '.cname // ""' 2>/dev/null || echo "")
             if [ -z "$after" ]; then
               echo "✓ custom domain removed"
@@ -97,13 +99,20 @@ jobs:
       # extensions hand out. Fail here rather than ship a green run whose site
       # nobody can load.
       - name: Assert the site published to the expected URL
+        id: url
         env:
           PUBLISHED: ${{ steps.deployment.outputs.page_url }}
           EXPECTED: https://doringber.github.io/thinkingbreak/
         run: |
+          # Compare host and path only. Right after a custom domain is cleared
+          # GitHub reports the URL as http:// until HTTPS enforcement is back,
+          # and that scheme difference is not a misconfiguration.
+          normalise() { printf '%s' "${1#http*://}"; }
           echo "published: $PUBLISHED"
           echo "expected:  $EXPECTED"
-          if [ "$PUBLISHED" != "$EXPECTED" ]; then
+          # Always hand the https form to anything that loads the page.
+          echo "url=https://$(normalise "$PUBLISHED")" >> "$GITHUB_OUTPUT"
+          if [ "$(normalise "$PUBLISHED")" != "$(normalise "$EXPECTED")" ]; then
             {
               echo "### Pages published to the wrong URL"
               echo ""
@@ -136,4 +145,4 @@ jobs:
           npm i --no-save --no-audit --no-fund playwright
           npx playwright install --with-deps chromium
       - name: Verify the live site in a real browser
-        run: node tools/verify-live.js "${{ steps.deployment.outputs.page_url }}"
+        run: node tools/verify-live.js "${{ steps.url.outputs.url }}"
