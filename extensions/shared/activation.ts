@@ -63,6 +63,7 @@ export function activateIntegration(ctx: vscode.ExtensionContext, integration: A
       hidePanels: cfg("hidePanelsWhenPlaying", true),
       openExternal: cfg("openInExternalBrowser", false),
       useSimpleBrowser: cfg("useSimpleBrowser", false),
+      roomCode: cfg("roomCode", ""),
       preserveFocus,
     });
     if (opened) sendAgentState("busy");

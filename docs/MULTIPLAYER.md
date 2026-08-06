@@ -57,6 +57,32 @@ That's it — no database, no auth, no security rules to write. Open the game,
 go to **Multiplayer** in the pause menu, enter a room code, and share that
 same code with your team.
 
+## Getting a team in without anyone typing a code
+
+Typing a room code is one more thing to get wrong, on every machine. Three
+ways to skip it, in increasing order of "set it once and forget":
+
+1. **Invite link.** Once you're in a room, the Multiplayer panel shows
+   **Copy invite link** — a URL ending in `?room=YOURCODE`. Paste it in your
+   team chat; anyone who opens it joins that room on load, no typing. (The
+   link deliberately drops `embed`/`agent`/`host`/`debug` params, so a link
+   copied from inside an editor panel still opens as a normal playable page
+   for everyone else.)
+
+2. **Extension setting.** Set `thinkingBreak.roomCode` (or
+   `thinkingBreakCursor.roomCode` / `thinkingBreakCodex.roomCode`) to your
+   team's code. Every time the panel opens on an agent break, it joins that
+   room automatically. Put it in **workspace settings** — or push it through
+   your org's settings sync — and the whole team is enrolled at once, with
+   nobody configuring anything individually.
+
+3. **Nothing at all, after the first time.** Whichever way you got in, the
+   room is remembered locally and rejoined on the next open, so an agent
+   break two minutes later puts you straight back with your teammates.
+
+An invite link wins over the remembered room, so sending someone a link always
+moves them to that room rather than silently keeping them in an old one.
+
 ## How it works
 
 Each room is one Supabase Realtime channel, named after the room code. Two
@@ -78,6 +104,13 @@ There's no Supabase Auth involved — each client generates its own random id
 with `crypto.randomUUID()` on join. That's enough identity for a trusted-team
 room-code model, and it skips a whole setup step Firebase-style backends
 would need.
+
+The Supabase client itself is fetched from a CDN on first Join —
+`cdn.jsdelivr.net`, falling back to `esm.sh` if that's blocked, since corporate
+networks often allowlist one and not the other. If both are unreachable the
+panel says so explicitly rather than looking like multiplayer is broken, and
+pressing Join again retries. Nothing is fetched at all until someone joins a
+room, so single-player never touches either host.
 
 ## The trust model, plainly
 

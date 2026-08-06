@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  applyDamageToHealth, buildSnapshot, colorForId, createInterpolator,
-  createPublishGate, isValidRoomCode, normalizeRoomCode, sanitizeSnapshot,
-  summarizeRoster,
+  applyDamageToHealth, buildInviteUrl, buildSnapshot, colorForId, createInterpolator,
+  createPublishGate, isValidRoomCode, normalizeRoomCode, roomCodeFromUrl,
+  sanitizeSnapshot, summarizeRoster,
 } from '../fps/src/multiplayer/protocol.js';
 
 // ── Room codes ─────────────────────────────────────────────────────────────
@@ -213,4 +213,56 @@ test('malformed entries in the roster do not crash summarizeRoster', () => {
 test('an empty or missing roster returns an empty list', () => {
   assert.deepEqual(summarizeRoster({}, 'me'), []);
   assert.deepEqual(summarizeRoster(undefined, 'me'), []);
+});
+
+// ── Invite links ───────────────────────────────────────────────────────────
+
+test('a room code is read out of a query string and normalized', () => {
+  assert.equal(roomCodeFromUrl('?room=acme2026'), 'ACME2026');
+  assert.equal(roomCodeFromUrl('?embed=1&room=acme-2026&agent=busy'), 'ACME2026');
+  assert.equal(roomCodeFromUrl('room=ACME2026'), 'ACME2026');
+});
+
+test('a missing, empty or malformed room param yields no code', () => {
+  assert.equal(roomCodeFromUrl(''), '');
+  assert.equal(roomCodeFromUrl('?debug=1'), '');
+  assert.equal(roomCodeFromUrl('?room='), '');
+  assert.equal(roomCodeFromUrl('?room=ab'), '', 'too short to be a valid code');
+  assert.equal(roomCodeFromUrl('?room=' + 'A'.repeat(13)), '', 'too long');
+  assert.equal(roomCodeFromUrl(undefined), '');
+});
+
+test('an invite link carries the room code on the current page URL', () => {
+  const url = buildInviteUrl('https://example.com/thinkingbreak/fps/', 'ACME2026');
+  assert.equal(url, 'https://example.com/thinkingbreak/fps/?room=ACME2026');
+});
+
+test('an invite link strips params that describe this session, not the room', () => {
+  // Copied from inside an editor panel: teammates must not inherit `embed=1`
+  // (chromeless, waiting on a host webview they do not have) or a stale agent
+  // state, or the link lands them in a game that never starts.
+  const url = buildInviteUrl(
+    'https://example.com/fps/?embed=1&agent=busy&host=editor&debug=1&keep=yes#hud',
+    'squad9',
+  );
+  const parsed = new URL(url);
+  assert.equal(parsed.searchParams.get('room'), 'SQUAD9');
+  assert.equal(parsed.searchParams.get('keep'), 'yes', 'unrelated params survive');
+  for (const dropped of ['embed', 'agent', 'host', 'debug']) {
+    assert.equal(parsed.searchParams.get(dropped), null, `${dropped} must be stripped`);
+  }
+  assert.equal(parsed.hash, '', 'the fragment is not part of an invite');
+});
+
+test('an invite link replaces an existing room param rather than duplicating it', () => {
+  const url = buildInviteUrl('https://example.com/fps/?room=OLDROOM', 'NEWROOM');
+  assert.equal(new URL(url).searchParams.getAll('room').length, 1);
+  assert.equal(new URL(url).searchParams.get('room'), 'NEWROOM');
+});
+
+test('no invite link is offered without a valid room code or URL', () => {
+  assert.equal(buildInviteUrl('https://example.com/fps/', ''), '');
+  assert.equal(buildInviteUrl('https://example.com/fps/', 'ab'), '');
+  assert.equal(buildInviteUrl('', 'ACME2026'), '', 'a relative/empty href has no origin to share');
+  assert.equal(buildInviteUrl('not a url', 'ACME2026'), '');
 });

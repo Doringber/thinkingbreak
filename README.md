@@ -168,6 +168,12 @@ code shares one arena: you see each other move, shoot each other, and see a
 live roster of who's connected and whose agent is currently busy or idle —
 so you know when a teammate's arena just opened, not just your own.
 
+Nobody has to type that code, though. Hit **Copy invite link** and paste the
+result in your team chat — opening it joins the room directly. Or set the
+extension's `roomCode` setting once (workspace settings enrol everyone at
+once) and every agent break drops the whole team into the same arena with
+zero setup.
+
 This is the one part of the project that isn't purely static — GitHub Pages
 can't hold a live connection open between players, so it talks to a small
 free [Supabase](https://supabase.com/) project you provision yourself.

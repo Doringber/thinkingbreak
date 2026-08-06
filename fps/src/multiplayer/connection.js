@@ -27,17 +27,41 @@
 import { isValidRoomCode, normalizeRoomCode } from './protocol.js';
 
 const SDK_VERSION = '2.45.4';
-const SDK_URL = `https://esm.sh/@supabase/supabase-js@${SDK_VERSION}`;
+
+// Two CDNs, tried in order. Corporate networks routinely allowlist one and not
+// the other, and from a player's side a blocked CDN is indistinguishable from
+// "multiplayer is broken" — so fall through instead of failing on the first.
+const SDK_SOURCES = [
+  `https://cdn.jsdelivr.net/npm/@supabase/supabase-js@${SDK_VERSION}/+esm`,
+  `https://esm.sh/@supabase/supabase-js@${SDK_VERSION}`,
+];
+
+export class MultiplayerError extends Error {}
 
 let sdkPromise = null;
 function loadSdk() {
-  if (!sdkPromise) {
-    sdkPromise = import(/* webpackIgnore: true */ SDK_URL);
-  }
+  if (sdkPromise) return sdkPromise;
+  sdkPromise = (async () => {
+    const failures = [];
+    for (const url of SDK_SOURCES) {
+      try {
+        return await import(/* webpackIgnore: true */ url);
+      } catch (err) {
+        let host = url;
+        try { host = new URL(url).host; } catch { /* keep the full url */ }
+        failures.push(`${host}: ${err?.message ?? err}`);
+      }
+    }
+    // A cached rejection would make every later Join fail without a reload,
+    // so a player who reconnects (or gets on the VPN) can just press it again.
+    sdkPromise = null;
+    throw new MultiplayerError(
+      `Could not load the multiplayer client from any CDN — check the network allows `
+      + `cdn.jsdelivr.net or esm.sh. (${failures.join('; ')})`,
+    );
+  })();
   return sdkPromise;
 }
-
-export class MultiplayerError extends Error {}
 
 /**
  * Join a room. Resolves once subscribed and the local presence is tracked;

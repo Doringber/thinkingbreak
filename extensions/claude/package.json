@@ -103,6 +103,13 @@
           "type": "boolean",
           "default": false,
           "description": "Use the built-in Simple Browser instead of the Thinking Break webview panel. Pause and resume then require a page reload."
+        },
+        "thinkingBreak.roomCode": {
+          "type": "string",
+          "default": "",
+          "pattern": "^([A-Za-z0-9]{4,12})?$",
+          "patternErrorMessage": "A room code is 4-12 letters or numbers, or empty for single-player.",
+          "markdownDescription": "Shared team room code. When set, the game joins that room automatically every time the panel opens, so teammates see each other with nothing to type. Put it in workspace or organisation settings to enrol a whole team at once. Leave empty for single-player. Requires multiplayer to be configured — see [docs/MULTIPLAYER.md](https://github.com/Doringber/thinkingbreak/blob/main/docs/MULTIPLAYER.md)."
         }
       }
     }

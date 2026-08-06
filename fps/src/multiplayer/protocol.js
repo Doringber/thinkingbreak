@@ -24,6 +24,44 @@ export function isValidRoomCode(code) {
   return ROOM_CODE_PATTERN.test(code);
 }
 
+// ── Invite links ─────────────────────────────────────────────────────────────
+// Typing a room code is one more thing to get wrong, and it has to happen on
+// every teammate's machine. `?room=CODE` is read at boot and joined
+// automatically, so sharing an arena is pasting one link into a team chat.
+
+/** Pull a room code out of a URL query string. '' when absent or malformed. */
+export function roomCodeFromUrl(search) {
+  let raw;
+  try {
+    raw = new URLSearchParams(search ?? '').get('room');
+  } catch {
+    return '';
+  }
+  const code = normalizeRoomCode(raw);
+  return isValidRoomCode(code) ? code : '';
+}
+
+// Params that describe *this* session rather than the room. An invite copied
+// from inside an editor panel must not hand teammates `embed=1` — that starts
+// chromeless and idle, waiting on a host webview they don't have — nor this
+// machine's stale `agent=` state.
+const SESSION_ONLY_PARAMS = ['embed', 'embedded', 'agent', 'host', 'debug'];
+
+/** Build a shareable link to `code` from the current page URL. '' if invalid. */
+export function buildInviteUrl(href, code) {
+  const normalized = normalizeRoomCode(code);
+  if (!isValidRoomCode(normalized)) return '';
+  try {
+    const url = new URL(href);
+    for (const param of SESSION_ONLY_PARAMS) url.searchParams.delete(param);
+    url.searchParams.set('room', normalized);
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
 // ── Publish throttling ───────────────────────────────────────────────────────
 // Position and heading are cheap to drop a few of and resync a moment later;
 // health, agent state, weapon and death must never be dropped, or a teammate's

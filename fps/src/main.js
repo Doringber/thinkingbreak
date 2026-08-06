@@ -9,6 +9,7 @@ import { createMenu } from './ui/menu.js';
 import { createStore } from './core/storage.js';
 import { getMode } from './game/modes.js';
 import { createAgentBridge, readBootConfig, signalAgent } from './lifecycle/bridge.js';
+import { roomCodeFromUrl } from './multiplayer/protocol.js';
 
 const boot = readBootConfig();
 const canvas = document.getElementById('scene');
@@ -53,12 +54,20 @@ try {
   game = new Game({ canvas, hud, store, menu, embedded: boot.embedded });
   menu.refreshSettings();
 
-  // Rejoin the team room automatically if this player was in one last time —
-  // otherwise every reload (every editor-panel resume) would mean retyping
-  // the code before teammates can see each other again.
-  if (game.save.multiplayer?.autoJoin && game.save.multiplayer?.roomCode) {
-    void game.joinMultiplayer(game.save.multiplayer.roomCode);
-  }
+  // Join a team room automatically, so nobody has to type a code.
+  //
+  // An invite link (`?room=CODE`) wins over the remembered room: following a
+  // link is an explicit request to go *there*, and it's what lets one pasted
+  // URL — or the editor extension's configured room — put a whole team in the
+  // same arena with no setup. Failing that, rejoin last session's room, since
+  // every reload is an editor-panel resume and retyping the code each time
+  // would mean teammates stop seeing each other.
+  const invitedRoom = roomCodeFromUrl(location.search);
+  const rememberedRoom = game.save.multiplayer?.autoJoin
+    ? (game.save.multiplayer.roomCode ?? '')
+    : '';
+  const bootRoom = invitedRoom || rememberedRoom;
+  if (bootRoom) void game.joinMultiplayer(bootRoom);
 
   // ── Agent lifecycle ─────────────────────────────────────────────────────
   bridge = createAgentBridge({

@@ -27,7 +27,7 @@ import {
   fire, giveAmmo, isReloading, startReload, weaponDef, WEAPONS,
 } from './weapons.js';
 import {
-  buildSnapshot, colorForId, createInterpolator, createPublishGate,
+  buildInviteUrl, buildSnapshot, colorForId, createInterpolator, createPublishGate,
   sanitizeSnapshot, summarizeRoster,
 } from '../multiplayer/protocol.js';
 
@@ -395,10 +395,14 @@ export class Game {
   }
 
   multiplayerSnapshot() {
+    const roomCode = this.multiplayer?.roomCode ?? this.save.multiplayer.roomCode;
     return {
       status: this.multiplayerStatus,
       error: this.multiplayerError,
-      roomCode: this.multiplayer?.roomCode ?? this.save.multiplayer.roomCode,
+      roomCode,
+      // Built here rather than in the UI so the menu stays a dumb renderer and
+      // never has to know what a room code means.
+      inviteUrl: buildInviteUrl(globalThis.location?.href ?? '', roomCode),
       roster: summarizeRoster(this.multiplayer?.getRoster(), this.multiplayer?.playerId),
     };
   }

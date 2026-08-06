@@ -168,6 +168,29 @@ export function createMenu({
     if (upper !== e.target.value) e.target.value = upper;
   });
 
+  // Sharing a room is the whole point of having one, so the link is one click
+  // away whenever we're in a room. `writeText` needs a user gesture and can be
+  // refused outright (insecure context, permission policy in an editor
+  // webview), so a refusal has to say so rather than look like nothing.
+  let inviteUrl = '';
+  bind('mp-copy-invite', 'click', async () => {
+    const btn = $('mp-copy-invite');
+    if (!btn || !inviteUrl) return;
+    const restore = () => { btn.textContent = 'Copy invite link'; };
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      btn.textContent = 'Copied — paste it to your team';
+    } catch {
+      btn.textContent = 'Copy failed — link is in the room code box';
+      const codeInput = $('mp-room-code');
+      if (codeInput) {
+        codeInput.value = inviteUrl;
+        codeInput.select?.();
+      }
+    }
+    setTimeout(restore, 2600);
+  });
+
   function refreshMultiplayerPanel() {
     const codeInput = $('mp-room-code');
     if (codeInput && !codeInput.value) codeInput.value = getState().roomCode ?? '';
@@ -274,6 +297,10 @@ export function createMenu({
       joinBtn?.classList.toggle('hidden', state.status === 'connected' || state.status === 'connecting');
       leaveBtn?.classList.toggle('hidden', state.status !== 'connected');
       if (codeInput && state.roomCode && !codeInput.value) codeInput.value = state.roomCode;
+
+      inviteUrl = state.inviteUrl ?? '';
+      $('mp-copy-invite')?.classList.toggle('hidden', state.status !== 'connected' || !inviteUrl);
+
       renderMultiplayerRoster(state.roster);
     },
   };

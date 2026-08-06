@@ -34,6 +34,13 @@ export interface OpenGameOptions {
   useSimpleBrowser?: boolean;
   /** Open the panel without stealing focus from the editor. */
   preserveFocus?: boolean;
+  /**
+   * Team room code. When set, the game joins that room on open, so a team
+   * shares one arena without anyone typing a code — set it once in settings
+   * (or push it through workspace settings) and every teammate's panel lands
+   * in the same room. Empty means single-player.
+   */
+  roomCode?: string;
 }
 
 let panel: vscode.WebviewPanel | undefined;
@@ -154,7 +161,15 @@ export async function openGamePanel(url: string, options: OpenGameOptions = {}):
   const hidePanels = options.hidePanels !== false;
   const openExternal = options.openExternal === true;
   const preserveFocus = options.preserveFocus === true;
-  const target = gameUrl(url, { embed: "1", agent: lastState, host: "editor" });
+  // Normalized here so a stray space or lowercase setting still matches the
+  // room everyone else is in; the game re-validates it either way.
+  const roomCode = (options.roomCode ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const target = gameUrl(url, {
+    embed: "1",
+    agent: lastState,
+    host: "editor",
+    ...(roomCode ? { room: roomCode } : {}),
+  });
 
   if (openExternal) {
     await vscode.env.openExternal(vscode.Uri.parse(target));
