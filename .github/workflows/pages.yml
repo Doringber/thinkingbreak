@@ -60,7 +60,17 @@ jobs:
         run: |
           current=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq '.cname // ""' 2>/dev/null || echo "")
           if [ -z "$current" ]; then
-            echo "✓ no custom domain configured — nothing to do"
+            echo "✓ no custom domain configured"
+            # Still make sure HTTPS is enforced. Clearing a custom domain
+            # resets that flag, so a repository that has been through this once
+            # can be left serving plain http on the default domain.
+            enforced=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq '.https_enforced // false' 2>/dev/null || echo "true")
+            if [ "$enforced" != "true" ]; then
+              echo "HTTPS not enforced — turning it on"
+              printf '{"https_enforced":true}' | gh api -X PUT "repos/$GITHUB_REPOSITORY/pages" --input - \
+                && echo "✓ HTTPS enforced" \
+                || echo "::warning::Could not enable Enforce HTTPS; set it under Settings → Pages."
+            fi
             exit 0
           fi
 
@@ -91,6 +101,12 @@ jobs:
           path: .
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # GitHub's Pages queue has repeatedly held this deployment past the
+          # 10-minute default and aborted a build that was otherwise fine
+          # (observed 4.5 min once and >10 min the next time). Waiting longer
+          # costs nothing when the queue is short.
+          timeout: 1200000
 
       # deploy-pages reports success as long as the files synced — even when
       # they were published somewhere unreachable. A custom domain configured
