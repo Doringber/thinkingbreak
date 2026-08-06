@@ -36,22 +36,48 @@ just says so and nothing else changes.
    region. You don't need to touch the database it provisions — this game
    only uses Realtime, not Postgres.
 
-2. **Get your project URL and anon key.** In the new project: **Project
-   Settings (⚙) → API**. Copy the **Project URL** and the **anon public**
-   key.
+2. **Get your project URL and browser key.** In the new project: **Project
+   Settings (⚙) → API Keys**. Copy the **Project URL**, plus *either* the
+   **publishable** key (`sb_publishable_…`) or the legacy **anonymous /
+   public** key (the long `eyJ…` JWT). Both are browser-safe.
 
-3. **Paste them into the game.** Open `fps/src/multiplayer/supabaseConfig.js`
-   and fill in the two fields from step 2:
+   > **Never use a key marked SECRET** — `sb_secret_…` or the legacy
+   > `service_role` JWT. Those bypass Row Level Security, and the deployed
+   > page is readable by every visitor. The deploy refuses to ship one, but
+   > don't rely on that: the two sit one click apart in the dashboard. If you
+   > need to tell them apart, paste the JWT at [jwt.io](https://jwt.io) — the
+   > `role` claim must read `anon`.
+
+3. **Add them as repository secrets, not code.** In the repo: **Settings →
+   Secrets and variables → Actions → New repository secret**. Add two:
+
+   | Name | Value |
+   |---|---|
+   | `SUPABASE_URL` | `https://yourproject.supabase.co` |
+   | `SUPABASE_ANON_KEY` | the browser-safe key from step 2 |
+
+   The deploy substitutes them into `supabaseConfig.js` on its way to Pages,
+   so no key is committed. Without them, multiplayer just stays off and
+   everything else works as normal.
+
+   Worth being precise about what this achieves: the key is kept out of git,
+   off the public source tree, and rotatable without a commit. It is *not*
+   made secret — a static site has to hand the browser something to connect
+   with, so anyone can still read it from the deployed page. That's expected;
+   it's the key Supabase designs to be published.
+
+4. **For local development**, set it in devtools instead of editing the file,
+   so a key can't ride along in a commit:
 
    ```js
-   export const supabaseConfig = {
+   localStorage.setItem('thinking-break/supabase', JSON.stringify({
      url: 'https://yourproject.supabase.co',
-     anonKey: 'eyJ...',
-   };
+     anonKey: 'eyJ…',
+   }));
    ```
 
-4. **Deploy.** Commit the filled-in config and push — the next Pages deploy
-   ships it. (Or just run it locally with `npm run serve` to try it first.)
+   Reload, and `npm run serve` behaves exactly like the deployed site. Undo
+   with `localStorage.removeItem('thinking-break/supabase')`.
 
 That's it — no database, no auth, no security rules to write. Open the game,
 go to **Multiplayer** in the pause menu, enter a room code, and share that
