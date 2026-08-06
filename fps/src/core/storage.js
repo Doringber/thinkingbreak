@@ -34,7 +34,7 @@ export const DEFAULT_SAVE = Object.freeze({
     fov: 90,
     showFps: false,
   },
-  // The Firebase config itself is never stored here — only the team's room
+  // The Supabase config itself is never stored here — only the team's room
   // code, which is a preference, not a secret.
   multiplayer: {
     roomCode: '',

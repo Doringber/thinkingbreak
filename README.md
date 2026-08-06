@@ -170,10 +170,10 @@ so you know when a teammate's arena just opened, not just your own.
 
 This is the one part of the project that isn't purely static — GitHub Pages
 can't hold a live connection open between players, so it talks to a small
-free [Firebase](https://firebase.google.com/) project you provision yourself.
+free [Supabase](https://supabase.com/) project you provision yourself.
 Nothing else needs it, single-player included, and it costs nothing to leave
 unconfigured: the panel just says so. **[docs/MULTIPLAYER.md](docs/MULTIPLAYER.md)**
-covers the five-minute setup, the security rules it expects, and the trust
+covers the two-minute setup, how presence/broadcast work, and the trust
 model (client-authoritative, suited to a team behind a shared code — not to
 strangers on the internet).
 
@@ -232,9 +232,9 @@ thinkingbreak/
 │       │   └── bridge.js      postMessage / BroadcastChannel / storage / URL
 │       └── multiplayer/       Opt-in — see docs/MULTIPLAYER.md
 │           ├── protocol.js    Room codes, throttling, interpolation, damage (pure)
-│           ├── connection.js  Firebase wrapper, dynamically imported on join
-│           └── firebaseConfig.js
-├── docs/MULTIPLAYER.md        Multiplayer setup, security rules, trust model
+│           ├── connection.js  Supabase wrapper, dynamically imported on join
+│           └── supabaseConfig.js
+├── docs/MULTIPLAYER.md        Multiplayer setup, trust model, known limits
 ├── extensions/
 │   ├── shared/                One implementation, three extensions
 │   │   ├── activation.ts      Status bar, commands, watcher wiring
@@ -266,7 +266,7 @@ does not use. The hand-rolled WebGL2 renderer is about 8 KB, and the whole game
 page is **≈190 KB uncompressed with zero dependencies** — which is what makes
 it start fast enough to be worth opening for a 20-second agent turn. That's
 single-player; opting into [multiplayer](docs/MULTIPLAYER.md) fetches the
-Firebase SDK on top of it, but only at the moment you actually join a room —
+Supabase SDK on top of it, but only at the moment you actually join a room —
 never before, and never at all if you don't.
 
 ### Performance

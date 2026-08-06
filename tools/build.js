@@ -55,13 +55,13 @@ const MODULES = [
 // Only reached via a dynamic import() when a player opens the Multiplayer
 // panel — single-player never fetches these, so they are parsed for syntax
 // but excluded from the "always loaded" payload budget below.
-const LAZY_MODULES = ['fps/src/multiplayer/connection.js', 'fps/src/multiplayer/firebaseConfig.js'];
+const LAZY_MODULES = ['fps/src/multiplayer/connection.js', 'fps/src/multiplayer/supabaseConfig.js'];
 
 for (const rel of [...MODULES, ...LAZY_MODULES]) {
   try {
     // `game.js` and the UI modules touch DOM/WebGL globals at call time only,
     // so importing them in Node is a genuine syntax and import-graph check.
-    // connection.js's CDN imports are dynamic and only evaluated inside
+    // connection.js's CDN import is dynamic and only evaluated inside
     // joinRoom(), so importing the module itself needs no network access.
     await import(`file://${join(ROOT, rel)}`);
   } catch (err) {
@@ -83,7 +83,7 @@ step('report payload size', () => {
   console.log(`  game JavaScript  ${kb(js)}`);
   console.log(`  html + css       ${kb(shell)}`);
   console.log(`  total game page  ${kb(total)} (uncompressed, no dependencies)`);
-  console.log(`  + multiplayer    ${kb(lazyJs)} local, plus the Firebase SDK — fetched only on Join`);
+  console.log(`  + multiplayer    ${kb(lazyJs)} local, plus the Supabase SDK — fetched only on Join`);
   // A hard ceiling: the whole point of the hand-rolled renderer is that the
   // page stays small enough to open instantly.
   const LIMIT = 250 * 1024;

@@ -3,7 +3,7 @@
 // Deliberately network-free. Everything here is a plain data transform, so
 // every rule that actually matters — room codes, publish throttling,
 // interpolation, damage — is unit-testable without a live connection.
-// `connection.js` is the thin, mostly-untestable shim around the Firebase SDK
+// `connection.js` is the thin, mostly-untestable shim around the Supabase SDK
 // that calls into this file; keeping the split this way means a bad room code
 // or a broken lerp shows up in `npm test`, not in a two-browser manual check.
 

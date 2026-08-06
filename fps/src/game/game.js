@@ -327,7 +327,7 @@ export class Game {
 
   // ── Multiplayer ────────────────────────────────────────────────────────────
   // A shared team room code, not authentication: anyone with the code joins
-  // the same arena. connection.js and the Firebase SDK are dynamically
+  // the same arena. connection.js and the Supabase SDK are dynamically
   // imported here, on first use only, so a single-player session never pays
   // for either.
 
@@ -343,12 +343,12 @@ export class Game {
     this.menu?.multiplayerState?.(this.multiplayerSnapshot());
 
     try {
-      const [{ joinRoom }, { firebaseConfig }] = await Promise.all([
+      const [{ joinRoom }, { supabaseConfig }] = await Promise.all([
         import('../multiplayer/connection.js'),
-        import('../multiplayer/firebaseConfig.js'),
+        import('../multiplayer/supabaseConfig.js'),
       ]);
       const session = await joinRoom({
-        config: firebaseConfig,
+        config: supabaseConfig,
         roomCode,
         onRoster: (players, localId) => this.onMultiplayerRoster(players, localId),
         onIncomingHit: (amount, fromId) => this.onRemoteHit(amount, fromId),
