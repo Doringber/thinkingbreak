@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Thinking Break — Play while your agent works</title>
+<meta name="description" content="Thinking Break opens a lightweight browser FPS the moment Claude Code, Cursor or Codex starts working, and pauses it the moment they finish." />
+<meta name="color-scheme" content="dark light" />
+<meta name="theme-color" content="#0A0C12" />
+<!-- Every path on this page is relative, so the site works identically at
+     https://doringber.github.io/thinkingbreak/ and at http://localhost:8080/ -->
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="./site/install.css" />
+
+<meta property="og:title" content="Thinking Break" />
+<meta property="og:description" content="A lightweight browser FPS that plays while your coding agent works." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://doringber.github.io/thinkingbreak/" />
+</head>
+<body>
+
+<div class="grid-bg" aria-hidden="true"></div>
+
+<main>
+  <header>
+    <div class="logo">
+      <img src="./assets/favicon.svg" alt="" aria-hidden="true" />
+      Thinking Break
+    </div>
+    <div class="header-right">
+      <span class="badge">Open source · v1.0.0</span>
+      <button id="theme-toggle" class="theme-btn" aria-label="Toggle light and dark theme">☀️</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <span class="eyebrow">Claude Code · Cursor · Codex · VS Code</span>
+    <h1>Take a <em>thinking break.</em></h1>
+    <p class="tagline">
+      Your agent starts working, an arena shooter opens in your editor.
+      Your agent finishes, the game pauses and saves. Next task, you pick up
+      exactly where you left off.
+    </p>
+
+    <div class="cta-row">
+      <a class="cta cta-primary" href="./fps/">▶ Play now</a>
+      <a class="cta" href="#install">Install for your editor</a>
+    </div>
+
+    <div class="terminal" role="region" aria-label="Install command">
+      <div class="term-bar">
+        <div class="term-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+        <span class="term-label">Terminal</span>
+        <span style="width:52px"></span>
+      </div>
+      <div class="term-body">
+        <div class="term-prompt" id="cmd-text">
+          <span class="dollar">$</span><span class="cmd-text">curl -fsSL https://doringber.github.io/thinkingbreak/install.sh | bash</span><span class="cursor-blink" aria-hidden="true"></span>
+        </div>
+        <button class="copy-btn" id="copy-btn" aria-label="Copy install command">Copy</button>
+      </div>
+    </div>
+
+    <div class="steps" role="list" aria-label="Lifecycle in brief">
+      <div class="step" role="listitem"><span class="step-dot dot-busy" aria-hidden="true"></span>Agent goes busy</div>
+      <span class="step-arrow" aria-hidden="true">→</span>
+      <div class="step" role="listitem"><span class="step-dot dot-play" aria-hidden="true"></span>Game resumes</div>
+      <span class="step-arrow" aria-hidden="true">→</span>
+      <div class="step" role="listitem"><span class="step-dot dot-idle" aria-hidden="true"></span>Agent finishes</div>
+      <span class="step-arrow" aria-hidden="true">→</span>
+      <div class="step" role="listitem"><span class="step-dot dot-back" aria-hidden="true"></span>Game pauses, saves</div>
+    </div>
+  </section>
+
+  <!-- ── What it does ──────────────────────────────────────────────────── -->
+  <section id="what" class="divider">
+    <h2>What Thinking Break does</h2>
+    <ul class="plain">
+      <li><strong>Fills the wait.</strong> Agent turns run anywhere from ten seconds to several minutes. Thinking Break puts a real game in that gap instead of a spinner.</li>
+      <li><strong>Never asks you to navigate.</strong> The game resumes the instant your agent goes busy — same mode, same round, same score, same ammo. No menus.</li>
+      <li><strong>Gets out of the way.</strong> The moment the agent stops, the game pauses, releases the pointer, suspends audio and cancels its render loop. A paused session costs essentially nothing.</li>
+      <li><strong>Stays local.</strong> Static files on GitHub Pages, progress in your browser's <code>localStorage</code>. No account, no backend, no telemetry.</li>
+    </ul>
+  </section>
+
+  <!-- ── Supported agents ──────────────────────────────────────────────── -->
+  <section id="agents" class="divider">
+    <h2>Supported agents and editors</h2>
+    <div class="cards">
+      <div class="card">
+        <div class="card-name">
+          <svg width="18" height="18" viewBox="0 0 100 100" aria-hidden="true">
+            <rect width="100" height="100" rx="18" fill="#CC5500"/>
+            <text x="50" y="69" font-size="54" font-weight="900" text-anchor="middle" fill="white" font-family="Georgia,serif">C</text>
+          </svg>
+          Claude Code
+        </div>
+        <p class="card-desc">Hooks into the Claude Code agent lifecycle through <code>~/.claude/settings.json</code>.</p>
+        <ul class="hook-list" aria-label="Claude Code hooks">
+          <li><span class="pill pill-busy">busy</span>PreToolUse → .*</li>
+          <li><span class="pill pill-idle">idle</span>Stop</li>
+          <li><span class="pill pill-idle">idle</span>SubagentStop</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-name">
+          <svg width="18" height="18" viewBox="0 0 100 100" aria-hidden="true">
+            <rect width="100" height="100" rx="18" fill="#1C1C1C"/>
+            <circle cx="50" cy="50" r="28" stroke="white" stroke-width="9" fill="none"/>
+            <circle cx="50" cy="50" r="11" fill="white"/>
+          </svg>
+          Cursor
+        </div>
+        <p class="card-desc">Uses Cursor's native agent hooks via a script in <code>~/.cursor/hooks/</code>.</p>
+        <ul class="hook-list" aria-label="Cursor hooks">
+          <li><span class="pill pill-busy">busy</span>beforeSubmitPrompt</li>
+          <li><span class="pill pill-idle">idle</span>stop</li>
+          <li><span class="pill pill-idle">idle</span>sessionEnd</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-name">
+          <svg width="18" height="18" viewBox="0 0 100 100" aria-hidden="true">
+            <rect width="100" height="100" rx="18" fill="#10A37F"/>
+            <polygon points="50,18 82,35 82,65 50,82 18,65 18,35" fill="none" stroke="white" stroke-width="8" stroke-linejoin="round"/>
+            <circle cx="50" cy="50" r="10" fill="white"/>
+          </svg>
+          Codex CLI
+        </div>
+        <p class="card-desc">Three-layer detection so no invocation is missed: config hooks, a shell wrapper, and process polling.</p>
+        <ul class="hook-list" aria-label="Codex hooks">
+          <li><span class="pill pill-busy">busy</span>config exec_before</li>
+          <li><span class="pill pill-idle">idle</span>config exec_after</li>
+          <li><span class="pill pill-host">poll</span>pgrep fallback</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-name">
+          <svg width="18" height="18" viewBox="0 0 100 100" aria-hidden="true">
+            <rect width="100" height="100" rx="18" fill="#007ACC"/>
+            <path d="M20 68L50 20l30 48" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          VS Code
+        </div>
+        <p class="card-desc">Runs as a native extension. The game lives in a webview panel that relays lifecycle events straight into the page.</p>
+        <ul class="hook-list" aria-label="VS Code details">
+          <li><span class="pill pill-host">host</span>VS Code ≥ 1.85</li>
+          <li><span class="pill pill-host">panel</span>Webview + Simple Browser fallback</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Install ───────────────────────────────────────────────────────── -->
+  <section id="install" class="divider">
+    <h2>How installation works</h2>
+    <div class="how-items">
+      <div class="how-item">
+        <span class="how-num">01</span>
+        <p class="how-text"><strong>Downloads the source</strong> from GitHub and compiles the extensions on your machine. Nothing is fetched from a build server.</p>
+      </div>
+      <div class="how-item">
+        <span class="how-num">02</span>
+        <p class="how-text"><strong>Packages a <code>.vsix</code></strong> and installs it into whichever editors it finds — VS Code, Cursor, or both.</p>
+      </div>
+      <div class="how-item">
+        <span class="how-num">03</span>
+        <p class="how-text"><strong>Writes agent hooks</strong> into <code>~/.claude/settings.json</code>, <code>~/.cursor/settings.json</code> and/or <code>~/.codex/config.toml</code>, depending on what you have installed.</p>
+      </div>
+      <div class="how-item">
+        <span class="how-num">04</span>
+        <p class="how-text"><strong>Touches nothing in your project.</strong> All state lives under <code>~/.thinking-break/</code> and the per-agent directories above.</p>
+      </div>
+    </div>
+
+    <p class="section-lead" style="margin-top:24px">
+      Prefer to run agents in a plain terminal, outside an editor? The terminal
+      installer wires the same hooks and drives a browser window instead
+      (macOS):
+    </p>
+    <pre><code>curl -fsSL https://doringber.github.io/thinkingbreak/install-terminal.sh | bash</code></pre>
+  </section>
+
+  <!-- ── Lifecycle ─────────────────────────────────────────────────────── -->
+  <section id="lifecycle" class="divider">
+    <h2>How the busy / idle lifecycle behaves</h2>
+    <div class="cards">
+      <div class="card">
+        <div class="card-name"><span class="step-dot dot-busy" aria-hidden="true"></span>On busy</div>
+        <p class="card-desc">Your agent starts a task or calls a tool.</p>
+        <ul class="hook-list">
+          <li>Open or focus the existing panel</li>
+          <li>Restore the saved session</li>
+          <li>Resume rendering, bots and timers</li>
+          <li>Show an "Agent working" status</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-name"><span class="step-dot dot-idle" aria-hidden="true"></span>On idle / stop</div>
+        <p class="card-desc">Your agent finishes or you interrupt it.</p>
+        <ul class="hook-list">
+          <li>Pause immediately, cancel the render loop</li>
+          <li>Freeze bots and timers, suspend audio</li>
+          <li>Save the session, release pointer lock</li>
+          <li>Hand focus back to the editor</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note" style="margin-top:16px">
+      <strong>Rapid events are safe.</strong> Agents emit a busy signal on every
+      tool call, so a repeated busy never restarts the game, and an idle that
+      arrives inside a short grace window is deferred — you do not get paused in
+      the gap between two tool calls. Only one render loop can ever exist, and
+      only one panel.
+    </p>
+  </section>
+
+  <!-- ── Game ──────────────────────────────────────────────────────────── -->
+  <section id="game" class="divider">
+    <h2>The game</h2>
+    <p class="section-lead">
+      An original arena shooter built for short sessions: a single compact map,
+      three weapons, and five modes that fit inside one agent turn. Roughly
+      40&nbsp;KB of JavaScript, no engine, no model downloads — it starts in
+      well under a second.
+    </p>
+
+    <div class="weapon-grid">
+      <div class="weapon">
+        <div class="weapon-name">AR-9 Cascade</div>
+        <div class="weapon-role">Assault rifle</div>
+        <div class="weapon-stats">21 dmg · 660 RPM · 30-round mag<br>Automatic, tight cone, low recoil</div>
+      </div>
+      <div class="weapon">
+        <div class="weapon-name">SG-12 Breaker</div>
+        <div class="weapon-role">Shotgun</div>
+        <div class="weapon-stats">9 × 13 dmg · 75 RPM · 6 shells<br>Brutal up close, useless at range</div>
+      </div>
+      <div class="weapon">
+        <div class="weapon-name">RG-1 Longshot</div>
+        <div class="weapon-role">Railgun</div>
+        <div class="weapon-stats">88 dmg · 4-round mag · no falloff<br>Pinpoint, heavy kick, slow</div>
+      </div>
+    </div>
+
+    <h2 style="margin-top:34px">Modes</h2>
+    <div class="mode-grid">
+      <div class="mode"><b>Survival</b><span>Endless escalating waves. Ends when you die.</span></div>
+      <div class="mode"><b>Time Attack</b><span>90 seconds. Every kill adds three back.</span></div>
+      <div class="mode"><b>Aim Rush</b><span>Railgun only, one shot per target, 60 seconds.</span></div>
+      <div class="mode"><b>Gun Progression</b><span>Three kills promotes you. Clear the railgun to win.</span></div>
+      <div class="mode"><b>One Hit</b><span>One shot kills — including you.</span></div>
+    </div>
+  </section>
+
+  <!-- ── Controls ──────────────────────────────────────────────────────── -->
+  <section id="controls" class="divider">
+    <h2>Controls</h2>
+    <dl class="controls-grid">
+      <div><dt><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dt><dd>Move</dd></div>
+      <div><dt>Mouse</dt><dd>Aim</dd></div>
+      <div><dt>Left click</dt><dd>Fire</dd></div>
+      <div><dt><kbd>Shift</kbd></dt><dd>Sprint</dd></div>
+      <div><dt><kbd>Space</kbd></dt><dd>Jump</dd></div>
+      <div><dt><kbd>Ctrl</kbd> / <kbd>C</kbd></dt><dd>Crouch, or slide at speed</dd></div>
+      <div><dt><kbd>R</kbd></dt><dd>Reload</dd></div>
+      <div><dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> · <kbd>Q</kbd> · wheel</dt><dd>Switch weapon</dd></div>
+      <div><dt><kbd>Esc</kbd></dt><dd>Pause and save</dd></div>
+      <div><dt><kbd>P</kbd></dt><dd>FPS counter</dd></div>
+    </dl>
+    <p class="note" style="margin-top:18px">
+      Click the arena once to capture the mouse. Sensitivity, field of view,
+      graphics quality, bot difficulty and volume all live in the pause menu and
+      persist with your session.
+    </p>
+  </section>
+
+  <!-- ── Privacy ───────────────────────────────────────────────────────── -->
+  <section id="privacy" class="divider">
+    <h2>Privacy and local storage</h2>
+    <ul class="plain">
+      <li><strong>No backend.</strong> The game is static files served from GitHub Pages. Nothing you do in it is sent anywhere.</li>
+      <li><strong>No analytics, no accounts, no cookies.</strong></li>
+      <li><strong>One localStorage key</strong>, <code>thinking-break/save</code>, holds your mode, round, score, high scores, weapon, settings and aggregate stats. It is versioned, and an unreadable or outdated save is discarded rather than crashing the game.</li>
+      <li><strong>Agent state stays on your machine.</strong> The extensions write a small JSON file under <code>~/.claude/</code>, <code>~/.cursor/</code> or <code>~/.codex/</code> saying only whether the agent is currently busy. Your prompts and code are never read.</li>
+      <li><strong>Clear it any time</strong> by opening the game with <code>?debug=1</code> and choosing “clear save”, or by clearing site data for this origin.</li>
+    </ul>
+  </section>
+
+  <!-- ── Uninstall ─────────────────────────────────────────────────────── -->
+  <section id="uninstall" class="divider">
+    <h2>How to uninstall</h2>
+    <pre><code>curl -fsSL https://doringber.github.io/thinkingbreak/uninstall.sh | bash</code></pre>
+    <p class="section-lead" style="margin-top:16px">That script removes the hook entries it added, deletes the state directories, and uninstalls the extensions. To do it by hand:</p>
+    <ul class="plain">
+      <li>Uninstall <b>Thinking Break</b> from your editor's Extensions view.</li>
+      <li>Delete the <code>thinking-break</code> hook entries from <code>~/.claude/settings.json</code>, <code>~/.cursor/settings.json</code> and the marked block in <code>~/.codex/config.toml</code>.</li>
+      <li>Remove <code>~/.thinking-break/</code>, <code>~/.claude/thinking-break/</code>, <code>~/.cursor/thinking-break/</code> and <code>~/.codex/thinking-break/</code>.</li>
+      <li>macOS terminal installer only: <code>launchctl unload ~/Library/LaunchAgents/com.doringber.thinking-break.plist</code>, then delete that file.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>Not affiliated with, or endorsed by, any game or AI company.</span>
+    <div class="footer-links">
+      <a href="https://github.com/Doringber/thinkingbreak" target="_blank" rel="noopener">GitHub</a>
+      <a href="./fps/">Play</a>
+      <a href="https://github.com/Doringber/thinkingbreak/blob/main/MIGRATION.md" target="_blank" rel="noopener">Attribution</a>
+    </div>
+  </footer>
+</main>
+
+<script src="./site/install.js" defer></script>
+</body>
+</html>
