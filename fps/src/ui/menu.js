@@ -6,6 +6,7 @@
 // agent starts a task.
 
 import { MODES, MODE_IDS } from '../game/modes.js';
+import { generateRoomCode } from '../multiplayer/protocol.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -154,6 +155,16 @@ export function createMenu({
     return $('mp-room-code')?.value ?? '';
   }
 
+  // "Create a room" is the whole flow in one click: a code is generated, joined,
+  // and turned into a link to paste in chat. Nobody has to invent a code, agree
+  // on one, or type it — which is the entire friction this feature had.
+  bind('mp-create', 'click', () => {
+    const code = generateRoomCode();
+    const input = $('mp-room-code');
+    if (input) input.value = code;
+    onJoinRoom?.(code);
+  });
+
   bind('mp-join', 'click', () => onJoinRoom?.(currentRoomCodeInput()));
   bind('mp-leave', 'click', () => onLeaveRoom?.());
   $('mp-room-code')?.addEventListener('keydown', (e) => {
@@ -294,7 +305,12 @@ export function createMenu({
         statusEl.textContent = label;
         statusEl.classList.toggle('mp-error', state.status === 'error');
       }
-      joinBtn?.classList.toggle('hidden', state.status === 'connected' || state.status === 'connecting');
+      // While connected there is nothing to create or join — only a link to
+      // share and a room to leave.
+      const busy = state.status === 'connected' || state.status === 'connecting';
+      joinBtn?.classList.toggle('hidden', busy);
+      $('mp-create')?.classList.toggle('hidden', busy);
+      $('mp-join-existing')?.classList.toggle('hidden', busy);
       leaveBtn?.classList.toggle('hidden', state.status !== 'connected');
       if (codeInput && state.roomCode && !codeInput.value) codeInput.value = state.roomCode;
 

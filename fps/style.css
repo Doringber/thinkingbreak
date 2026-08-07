@@ -480,6 +480,18 @@ input[type="text"] {
   letter-spacing: 0.04em;
 }
 input[type="text"]:focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 1px; }
+/* Joining by hand is the fallback now that a room is one click, so it folds
+   away rather than competing with the primary action. */
+.mp-join-existing { margin: 14px 0 4px; }
+.mp-join-existing > summary {
+  cursor: pointer; font-size: 0.82rem; color: var(--muted);
+  padding: 6px 2px; list-style: none; user-select: none;
+}
+.mp-join-existing > summary::-webkit-details-marker { display: none; }
+.mp-join-existing > summary::before { content: '▸ '; }
+.mp-join-existing[open] > summary::before { content: '▾ '; }
+.mp-join-existing > summary:hover { color: var(--text); }
+
 .mp-status { font-family: var(--mono); }
 .mp-status.mp-error { color: var(--red); }
 .mp-roster { display: flex; flex-direction: column; gap: 7px; max-height: 220px; overflow-y: auto; }

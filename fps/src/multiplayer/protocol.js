@@ -24,6 +24,29 @@ export function isValidRoomCode(code) {
   return ROOM_CODE_PATTERN.test(code);
 }
 
+// Deliberately missing 0/O and 1/I/L. A code is read aloud on calls and
+// retyped from screenshots, and those pairs are where that goes wrong.
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+/**
+ * A fresh room code. Six characters from a 31-symbol alphabet is ~887M
+ * combinations — far past the point where two teams collide by accident,
+ * while still being short enough to say out loud.
+ */
+export function generateRoomCode(length = 6) {
+  const n = CODE_ALPHABET.length;
+  const bytes = globalThis.crypto?.getRandomValues?.(new Uint8Array(length));
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    // Modulo over 256 skews slightly toward the front of the alphabet. That
+    // costs a fraction of a bit of entropy on a code whose real protection is
+    // being shared privately, and avoids a rejection loop for no benefit.
+    const pick = bytes ? bytes[i] % n : Math.floor(Math.random() * n);
+    code += CODE_ALPHABET[pick];
+  }
+  return code;
+}
+
 // ── Invite links ─────────────────────────────────────────────────────────────
 // Typing a room code is one more thing to get wrong, and it has to happen on
 // every teammate's machine. `?room=CODE` is read at boot and joined

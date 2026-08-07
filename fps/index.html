@@ -132,17 +132,21 @@
         shoot each other, and see whose agent is working right now.
       </p>
 
-      <label class="field">
-        <span class="field-label">Room code</span>
-        <input id="mp-room-code" type="text" maxlength="12" autocomplete="off"
-               autocapitalize="characters" spellcheck="false"
-               placeholder="e.g. ACME2026" />
-      </label>
-
       <div class="panel-actions">
-        <button id="mp-join" class="btn btn-primary">Join room</button>
+        <button id="mp-create" class="btn btn-primary">Create a room</button>
         <button id="mp-leave" class="btn btn-quiet hidden">Leave room</button>
       </div>
+
+      <details id="mp-join-existing" class="mp-join-existing">
+        <summary>Or join with a code someone gave you</summary>
+        <label class="field">
+          <span class="field-label">Room code</span>
+          <input id="mp-room-code" type="text" maxlength="12" autocomplete="off"
+                 autocapitalize="characters" spellcheck="false"
+                 placeholder="e.g. ACME26" />
+        </label>
+        <button id="mp-join" class="btn btn-quiet">Join room</button>
+      </details>
 
       <p id="mp-status" class="panel-sub mp-status">Not connected.</p>
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   applyDamageToHealth, buildInviteUrl, buildSnapshot, colorForId, createInterpolator,
-  createPublishGate, isValidRoomCode, normalizeRoomCode, roomCodeFromUrl,
+  createPublishGate, generateRoomCode, isValidRoomCode, normalizeRoomCode, roomCodeFromUrl,
   sanitizeSnapshot, summarizeRoster,
 } from '../fps/src/multiplayer/protocol.js';
 
@@ -265,4 +265,31 @@ test('no invite link is offered without a valid room code or URL', () => {
   assert.equal(buildInviteUrl('https://example.com/fps/', 'ab'), '');
   assert.equal(buildInviteUrl('', 'ACME2026'), '', 'a relative/empty href has no origin to share');
   assert.equal(buildInviteUrl('not a url', 'ACME2026'), '');
+});
+
+// ── Generated room codes ────────────────────────────────────────────────────
+
+test('a generated room code is valid and free of look-alike characters', () => {
+  for (let i = 0; i < 200; i++) {
+    const code = generateRoomCode();
+    assert.equal(code.length, 6);
+    assert.ok(isValidRoomCode(code), `${code} should pass validation`);
+    assert.equal(normalizeRoomCode(code), code, 'already normalized');
+    // 0/O and 1/I/L are what turn a code read over a call into a failed join.
+    assert.ok(!/[01OIL]/.test(code), `${code} contains an ambiguous character`);
+  }
+});
+
+test('generated room codes do not collide in practice', () => {
+  const seen = new Set();
+  for (let i = 0; i < 2000; i++) seen.add(generateRoomCode());
+  // ~887M possible codes: 2000 draws colliding would mean the generator is
+  // broken, not unlucky.
+  assert.equal(seen.size, 2000, 'every generated code should be distinct');
+});
+
+test('a generated code round-trips through an invite link', () => {
+  const code = generateRoomCode();
+  const url = buildInviteUrl('https://example.com/fps/', code);
+  assert.equal(roomCodeFromUrl(new URL(url).search), code);
 });
