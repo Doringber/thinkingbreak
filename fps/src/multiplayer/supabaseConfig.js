@@ -57,8 +57,3 @@ function localOverride() {
 }
 
 export const supabaseConfig = localOverride() ?? COMMITTED;
-
-/** True once the fields multiplayer actually needs are filled in. */
-export function isMultiplayerConfigured(config = supabaseConfig) {
-  return Boolean(config?.url && config?.anonKey);
-}

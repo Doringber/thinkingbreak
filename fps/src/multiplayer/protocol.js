@@ -9,8 +9,6 @@
 
 import { WEAPONS_BY_ID } from '../game/weapons.js';
 
-export const PROTOCOL_VERSION = 1;
-
 // ── Room codes ───────────────────────────────────────────────────────────────
 // One code per team: short enough to read over a call, long enough that two
 // unrelated teams won't collide by typing the same word.

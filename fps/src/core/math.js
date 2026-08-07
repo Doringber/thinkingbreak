@@ -17,17 +17,6 @@ export function makeRng(seed = 1) {
   };
 }
 
-export function length3(x, y, z) {
-  return Math.hypot(x, y, z);
-}
-
-/** Column-major 4x4, matching the GLSL `mat4` memory layout. */
-export function mat4Identity(out = new Float32Array(16)) {
-  out.fill(0);
-  out[0] = out[5] = out[10] = out[15] = 1;
-  return out;
-}
-
 export function mat4Perspective(out, fovY, aspect, near, far) {
   const f = 1 / Math.tan(fovY / 2);
   out.fill(0);
