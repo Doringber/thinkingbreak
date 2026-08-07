@@ -293,3 +293,26 @@ test('a generated code round-trips through an invite link', () => {
   const url = buildInviteUrl('https://example.com/fps/', code);
   assert.equal(roomCodeFromUrl(new URL(url).search), code);
 });
+
+// ── The committed key must be browser-safe ──────────────────────────────────
+// The key ships to every visitor, which is fine for an `anon`/publishable key
+// and catastrophic for a secret one — and in the Supabase dashboard those sit
+// one row apart. This is the guard against that one-click mistake.
+
+test('the committed Supabase key is not a secret key', async () => {
+  const { supabaseConfig } = await import('../fps/src/multiplayer/supabaseConfig.js');
+  const key = supabaseConfig.anonKey ?? '';
+  if (!key) return; // unconfigured is a valid state — multiplayer is simply off
+
+  assert.ok(!key.startsWith('sb_secret_'),
+    'anonKey is an `sb_secret_…` key; it bypasses Row Level Security and this file is public');
+
+  const parts = key.split('.');
+  if (parts.length === 3) {
+    // A JWT payload is base64, not encrypted — which is precisely why shipping
+    // a service_role one hands admin access to anyone who views source.
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    assert.equal(payload.role, 'anon',
+      `anonKey is a "${payload.role}" JWT; only a "anon" one may be published`);
+  }
+});

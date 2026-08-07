@@ -96,21 +96,6 @@ jobs:
         with:
           enablement: true
 
-      # Multiplayer's project URL and browser key are injected here rather than
-      # committed, so no key sits in the repository or its history. Both are
-      # public by design — the deployed page hands them to every visitor — but
-      # keeping them out of git means they are not scraped from a public source
-      # tree and can be rotated without a commit.
-      #
-      # Absent secrets leave multiplayer switched off, which stays a clean no-op
-      # rather than a failed build. A key that grants more than a browser should
-      # have does fail the build, deliberately.
-      - name: Inject the multiplayer configuration
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: node tools/inject-supabase-config.js
-
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:

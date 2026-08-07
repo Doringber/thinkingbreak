@@ -43,28 +43,17 @@ just says so and nothing else changes.
 
    > **Never use a key marked SECRET** — `sb_secret_…` or the legacy
    > `service_role` JWT. Those bypass Row Level Security, and the deployed
-   > page is readable by every visitor. The deploy refuses to ship one, but
-   > don't rely on that: the two sit one click apart in the dashboard. If you
-   > need to tell them apart, paste the JWT at [jwt.io](https://jwt.io) — the
-   > `role` claim must read `anon`.
+   > page is readable by every visitor. `npm test` fails if one is committed,
+   > but don't rely on that: the two sit one click apart in the dashboard. To
+   > tell them apart, paste the JWT at [jwt.io](https://jwt.io) — the `role`
+   > claim must read `anon`.
 
-3. **Add them as repository secrets, not code.** In the repo: **Settings →
-   Secrets and variables → Actions → New repository secret**. Add two:
-
-   | Name | Value |
-   |---|---|
-   | `SUPABASE_URL` | `https://yourproject.supabase.co` |
-   | `SUPABASE_ANON_KEY` | the browser-safe key from step 2 |
-
-   The deploy substitutes them into `supabaseConfig.js` on its way to Pages,
-   so no key is committed. Without them, multiplayer just stays off and
-   everything else works as normal.
-
-   Worth being precise about what this achieves: the key is kept out of git,
-   off the public source tree, and rotatable without a commit. It is *not*
-   made secret — a static site has to hand the browser something to connect
-   with, so anyone can still read it from the deployed page. That's expected;
-   it's the key Supabase designs to be published.
+3. **Paste them into the game.** Open `fps/src/multiplayer/supabaseConfig.js`
+   and fill in the two fields from step 2. The key is committed on purpose:
+   it is public either way, since the deployed page hands it to every visitor,
+   and committing it means the site works the moment it deploys with nothing
+   else to configure. A test fails the build if a *secret* key is ever put
+   there by mistake.
 
 4. **For local development**, set it in devtools instead of editing the file,
    so a key can't ride along in a commit:
@@ -80,8 +69,32 @@ just says so and nothing else changes.
    with `localStorage.removeItem('thinking-break/supabase')`.
 
 That's it — no database, no auth, no security rules to write. Open the game,
-go to **Multiplayer** in the pause menu, enter a room code, and share that
-same code with your team.
+go to **Multiplayer** in the pause menu, and hit **Create a room**: it makes a
+code, joins it, and hands you a link to paste in your team chat. Anyone who
+opens that link lands in the same arena without typing anything.
+
+## Hosting it somewhere your team can reach
+
+GitHub Pages is the default, but it depends on Actions runners being available —
+when that queue stalls, deploys stop. `netlify.toml` in the repo root is a
+second, independent path that doesn't:
+
+1. [app.netlify.com](https://app.netlify.com) → **Add new site → Import an
+   existing project** → pick this repository.
+2. Leave the build command empty; publish directory `.` (the file already says
+   so). Deploy.
+3. The game is at `https://<your-site>.netlify.app/fps/`.
+
+Both can run at once — Netlify deploys from a push webhook, Pages from the
+workflow. Cloudflare Pages works the same way: connect the repo, no build
+command, output directory `/`.
+
+One difference worth knowing: on Netlify the site sits at the domain root
+rather than under `/thinkingbreak/`. The game doesn't care — every path it uses
+is relative, and invite links are built from the address bar, so they point at
+whichever host produced them. The absolute `github.io` URLs elsewhere in the
+repo (the extensions' default `gameUrl`, the install scripts) still point at
+Pages; change those only if a new host becomes the canonical one.
 
 ## Getting a team in without anyone typing a code
 
@@ -126,10 +139,11 @@ of that channel's features do all the work:
   to messages addressed to them. The target's own client applies the damage
   to itself.
 
-There's no Supabase Auth involved — each client generates its own random id
-with `crypto.randomUUID()` on join. That's enough identity for a trusted-team
-room-code model, and it skips a whole setup step Firebase-style backends
-would need.
+There's no Supabase Auth involved — each client generates its own random id on
+join (`crypto.randomUUID()`, falling back to `getRandomValues` where that isn't
+available, such as a page served over plain HTTP on a LAN address). That's
+enough identity for a trusted-team room-code model, and it skips a whole setup
+step Firebase-style backends would need.
 
 The Supabase client itself is fetched from a CDN on first Join —
 `cdn.jsdelivr.net`, falling back to `esm.sh` if that's blocked, since corporate

@@ -1,0 +1,40 @@
+# Netlify deployment.
+#
+# An alternative to the GitHub Pages workflow, and a useful one: this path does
+# not depend on GitHub Actions runners at all, so it keeps working when that
+# queue stalls. Both can run side by side — Netlify builds from a push webhook,
+# Pages from the workflow — and neither knows about the other.
+#
+# There is nothing to build. The repository root *is* the site: hand-written
+# HTML/CSS and native ES modules, published as-is.
+#
+#   Landing page   https://<your-site>.netlify.app/
+#   The game       https://<your-site>.netlify.app/fps/
+#   An invite      https://<your-site>.netlify.app/fps/?room=ABC123
+#
+# Note the game lives at the domain root here rather than under /thinkingbreak/
+# as it does on GitHub Pages. That is fine: every path the page itself uses is
+# relative, and invite links are built from `location.href`, so they follow
+# whichever host produced them. The absolute github.io URLs elsewhere in the
+# repo (the extensions' default gameUrl, the install scripts) still point at
+# Pages — update those only if this becomes the canonical home.
+
+[build]
+  publish = "."
+
+# Long-lived caching would be wrong here: these files are served straight from
+# the repo with no content hashes in their names, so a cached copy of main.js
+# outlives the deploy that replaced it.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# The game and the landing page are static documents; nothing here should be
+# framed by a third party except the editor panel, which loads it in an iframe
+# it owns, from a webview with its own CSP.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
