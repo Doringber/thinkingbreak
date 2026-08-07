@@ -80,6 +80,21 @@
       <div id="reload-bar" class="reload-bar"><div id="reload-fill" class="reload-fill"></div></div>
     </div>
   </div>
+
+  <!-- Touch controls. Hidden until a finger actually touches the screen, so a
+       touchscreen laptop keeps mouse and keyboard until someone wants
+       otherwise. The stick is drawn wherever the thumb lands. -->
+  <div id="touch-stick" class="touch-stick" aria-hidden="true">
+    <div id="touch-stick-thumb" class="touch-stick-thumb"></div>
+  </div>
+  <div id="touch-controls" class="touch-controls" aria-hidden="true">
+    <button id="touch-jump" class="touch-btn touch-btn-small" type="button">Jump</button>
+    <button id="touch-crouch" class="touch-btn touch-btn-small" type="button">Crouch</button>
+    <button id="touch-reload" class="touch-btn touch-btn-small" type="button">Reload</button>
+    <button id="touch-weapon" class="touch-btn touch-btn-small" type="button">Weapon</button>
+    <button id="touch-fire" class="touch-btn touch-btn-fire" type="button">Fire</button>
+  </div>
+  <button id="touch-pause" class="touch-pause" type="button" aria-label="Pause">❚❚</button>
 </div>
 
 <!-- ── Overlay ─────────────────────────────────────────────────────────── -->
@@ -100,7 +115,7 @@
         <button id="btn-settings" class="btn">Settings</button>
         <button id="btn-restart" class="btn btn-quiet">Restart round</button>
       </div>
-      <dl class="controls">
+      <dl class="controls controls-keyboard">
         <div><dt>WASD</dt><dd>Move</dd></div>
         <div><dt>Mouse</dt><dd>Aim</dd></div>
         <div><dt>Left click</dt><dd>Fire</dd></div>
@@ -111,6 +126,14 @@
         <div><dt>1 2 3 · Q · Wheel</dt><dd>Weapons</dd></div>
         <div><dt>Esc</dt><dd>Pause</dd></div>
         <div><dt>P</dt><dd>FPS counter</dd></div>
+      </dl>
+      <dl class="controls controls-touch">
+        <div><dt>Left thumb</dt><dd>Move · push fully to sprint</dd></div>
+        <div><dt>Right drag</dt><dd>Aim</dd></div>
+        <div><dt>Fire</dt><dd>Tap or hold to shoot</dd></div>
+        <div><dt>Jump · Crouch</dt><dd>Hold</dd></div>
+        <div><dt>Reload · Weapon</dt><dd>Tap</dd></div>
+        <div><dt>❚❚</dt><dd>Pause, top right</dd></div>
       </dl>
       <p class="panel-foot">
         Progress saves locally and resumes on your agent's next task.

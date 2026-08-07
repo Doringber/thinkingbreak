@@ -97,8 +97,24 @@ try {
   document.getElementById('boot-loader')?.remove();
 
   // Click-to-play: any click on the canvas locks the pointer and resumes.
+  // Skipped once touch is in use — there is no pointer to lock, and asking for
+  // it on a phone just triggers a permission prompt that can never succeed.
   canvas.addEventListener('click', () => {
-    if (!menu.visible) game.input.requestLock();
+    if (!menu.visible && !game.input.state.touchActive) game.input.requestLock();
+  });
+
+  // ── Touch controls ────────────────────────────────────────────────────────
+  // Bound unconditionally; the buttons stay display:none until input.js sees a
+  // real touch, so this costs a desktop session nothing.
+  const bind = (id, opts) => game.input.bindTouchButton(document.getElementById(id), opts);
+  bind('touch-fire', { firing: true });
+  bind('touch-jump', { code: 'Space', hold: true });
+  bind('touch-crouch', { code: 'ControlLeft', hold: true });
+  bind('touch-reload', { code: 'KeyR' });
+  bind('touch-weapon', { code: 'KeyQ' });
+  document.getElementById('touch-pause')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    game.togglePause();
   });
 
   // Local debug controls — visible only when `?debug=1` is present. They drive

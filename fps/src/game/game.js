@@ -124,7 +124,10 @@ export class Game {
     // working, not just when their own arena opens.
     this.agentState = 'idle';
 
-    this.input = createInput(canvas, { onAction: (name, payload) => this.onInputAction(name, payload) });
+    this.input = createInput(canvas, {
+      onAction: (name, payload) => this.onInputAction(name, payload),
+      onTouchStick: (stick) => this.hud.touchStick?.(stick),
+    });
 
     this._loop = this._loop.bind(this);
     this.applyQuality(this.activeQuality);
@@ -538,8 +541,14 @@ export class Game {
   // ── Input actions ─────────────────────────────────────────────────────────
 
   onInputAction(name, payload) {
-    if (name === 'keydown' || name === 'mousedown' || name === 'requestLock') {
+    if (name === 'keydown' || name === 'mousedown' || name === 'requestLock' || name === 'touchactive') {
       this.userGestured = true;
+    }
+    // A touch is the gesture browsers wait for before allowing audio, and on a
+    // phone it may be the only one that ever arrives.
+    if (name === 'touchactive') {
+      this.audio.resume();
+      return;
     }
     if (name === 'requestLock') {
       if (this.running) this.input.requestLock();
@@ -621,13 +630,16 @@ export class Game {
     if (wheel) this.switchWeapon(cycleWeapon(this.loadout.current, wheel > 0 ? 1 : -1));
 
     // ── Movement ────────────────────────────────────────────────────────────
-    const forward = (this.input.anyDown('KeyW', 'ArrowUp') ? 1 : 0) - (this.input.anyDown('KeyS', 'ArrowDown') ? 1 : 0);
-    const strafe = (this.input.anyDown('KeyD', 'ArrowRight') ? 1 : 0) - (this.input.anyDown('KeyA', 'ArrowLeft') ? 1 : 0);
+    // Keys are all-or-nothing; the touch stick is analogue. Summing and
+    // clamping lets either drive the player without the two fighting, and
+    // keeps a half-pushed stick as a genuine walk rather than a run.
+    const keyForward = (this.input.anyDown('KeyW', 'ArrowUp') ? 1 : 0) - (this.input.anyDown('KeyS', 'ArrowDown') ? 1 : 0);
+    const keyStrafe = (this.input.anyDown('KeyD', 'ArrowRight') ? 1 : 0) - (this.input.anyDown('KeyA', 'ArrowLeft') ? 1 : 0);
     const intent = {
-      forward,
-      strafe,
+      forward: clamp(keyForward + this.input.state.moveY, -1, 1),
+      strafe: clamp(keyStrafe + this.input.state.moveX, -1, 1),
       jump: this.input.isDown('Space'),
-      sprint: this.input.anyDown('ShiftLeft', 'ShiftRight'),
+      sprint: this.input.anyDown('ShiftLeft', 'ShiftRight') || this.input.state.sprinting,
       crouch: this.input.anyDown('ControlLeft', 'ControlRight', 'KeyC'),
       now,
     };
@@ -646,8 +658,13 @@ export class Game {
     if (finishReload(def, state, now)) this.hud.toast('Reloaded', 700);
     if (mode.infiniteAmmo) state.reserve = Math.max(state.reserve, def.reserve);
 
-    const wantsFire = this.input.state.firing;
-    if (wantsFire && this.player.alive && this.input.state.pointerLocked) {
+    // Touch has no pointer lock to gate on — the fire button is the intent.
+    const wantsFire = this.input.state.firing || this.input.state.fireLatch;
+    // Cleared unconditionally: the latch buys a tap exactly one frame of
+    // intent, not a shot queued indefinitely behind a reload.
+    this.input.state.fireLatch = false;
+    const canAim = this.input.state.pointerLocked || this.input.state.touchActive;
+    if (wantsFire && this.player.alive && canAim) {
       const gate = canFire(def, state, now);
       if (gate.ok) {
         this.shoot(def, state, now);

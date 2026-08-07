@@ -158,6 +158,23 @@ export function createHud() {
     },
 
     /**
+     * Draw the touch thumbstick where the finger actually is. Called only while
+     * a thumb is down, straight from the pointer handler rather than the frame
+     * loop, so the ring appears the instant it is touched instead of up to a
+     * frame later.
+     */
+    touchStick({ active, baseX = 0, baseY = 0, dx = 0, dy = 0 }) {
+      const ring = document.getElementById('touch-stick');
+      const thumb = document.getElementById('touch-stick-thumb');
+      if (!ring) return;
+      ring.classList.toggle('active', Boolean(active));
+      if (!active) return;
+      ring.style.left = `${baseX}px`;
+      ring.style.top = `${baseY}px`;
+      if (thumb) thumb.style.transform = `translate(${dx}px, ${dy}px)`;
+    },
+
+    /**
      * The live teammate list. Every field here can come straight from the
      * network, so this builds real DOM nodes and sets `.textContent` rather
      * than interpolating into `innerHTML` — a crafted display name must never

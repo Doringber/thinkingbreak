@@ -229,6 +229,23 @@ strangers on the internet).
 
 Click the arena once to capture the mouse.
 
+### On a phone or tablet
+
+Touch controls appear the moment you touch the screen — nothing to enable, and
+a touchscreen laptop keeps mouse and keyboard until a finger is actually used.
+
+| Input | Action |
+|---|---|
+| Left thumb, anywhere on the left | Move. The stick appears where you touch it; push fully to sprint |
+| Drag anywhere else | Aim — a second finger can aim while the first still moves |
+| **Fire** | Tap for one shot, hold for automatic |
+| **Jump** / **Crouch** | Hold |
+| **Reload** / **Weapon** | Tap |
+| ❚❚ top right | Pause and save |
+
+Landscape gives the most arena for the least chrome, but portrait works and the
+controls shrink to suit it.
+
 ## Architecture
 
 ```
