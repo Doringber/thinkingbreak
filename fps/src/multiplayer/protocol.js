@@ -47,6 +47,47 @@ export function generateRoomCode(length = 6) {
   return code;
 }
 
+// ── Configuration diagnostics ────────────────────────────────────────────────
+// When a join fails, the useful question is almost always "which project and
+// which kind of key did it actually use" — and the answer is otherwise only
+// reachable through devtools, which is no help to someone on a phone. This
+// renders it as one line the panel can show, so a screenshot is a bug report.
+
+function jwtRole(token) {
+  const parts = String(token).split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=');
+    const payload = JSON.parse(atob(padded));
+    return typeof payload.role === 'string' ? payload.role : null;
+  } catch {
+    return null;
+  }
+}
+
+/** One short line describing which project and key kind are in use. */
+export function describeConfig(config) {
+  let host = null;
+  try {
+    host = new URL(config?.url ?? '').host;
+  } catch {
+    host = null;
+  }
+
+  const key = typeof config?.anonKey === 'string' ? config.anonKey : '';
+  let kind;
+  if (!key) kind = 'no key';
+  else if (key.startsWith('sb_publishable_')) kind = 'publishable key';
+  else if (key.startsWith('sb_secret_')) kind = 'SECRET KEY — replace it';
+  else {
+    const role = jwtRole(key);
+    kind = role ? `${role} key` : 'unrecognised key';
+  }
+
+  return `${host ?? 'no project url'} · ${kind}`;
+}
+
 // ── Invite links ─────────────────────────────────────────────────────────────
 // Typing a room code is one more thing to get wrong, and it has to happen on
 // every teammate's machine. `?room=CODE` is read at boot and joined

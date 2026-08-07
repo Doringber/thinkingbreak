@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 
 import {
   applyDamageToHealth, buildInviteUrl, buildSnapshot, colorForId, createInterpolator,
-  createPublishGate, generateRoomCode, isValidRoomCode, normalizeRoomCode, roomCodeFromUrl,
+  createPublishGate, describeConfig, generateRoomCode, isValidRoomCode, normalizeRoomCode,
+  roomCodeFromUrl,
   sanitizeSnapshot, summarizeRoster,
 } from '../fps/src/multiplayer/protocol.js';
 
@@ -315,4 +316,31 @@ test('the committed Supabase key is not a secret key', async () => {
     assert.equal(payload.role, 'anon',
       `anonKey is a "${payload.role}" JWT; only a "anon" one may be published`);
   }
+});
+
+// ── Config diagnostics ──────────────────────────────────────────────────────
+
+test('describeConfig names the project host and the kind of key', () => {
+  const anon = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.sig';
+  assert.equal(
+    describeConfig({ url: 'https://abc123.supabase.co', anonKey: anon }),
+    'abc123.supabase.co · anon key',
+  );
+  assert.equal(
+    describeConfig({ url: 'https://abc123.supabase.co', anonKey: 'sb_publishable_xyz' }),
+    'abc123.supabase.co · publishable key',
+  );
+});
+
+test('describeConfig calls out a secret key rather than quietly naming it', () => {
+  const svc = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.sig';
+  assert.match(describeConfig({ url: 'https://a.supabase.co', anonKey: svc }), /service_role key/);
+  assert.match(describeConfig({ url: 'https://a.supabase.co', anonKey: 'sb_secret_x' }), /SECRET KEY/);
+});
+
+test('describeConfig degrades rather than throwing on missing or junk config', () => {
+  assert.equal(describeConfig({}), 'no project url · no key');
+  assert.equal(describeConfig(null), 'no project url · no key');
+  assert.equal(describeConfig({ url: 'not a url', anonKey: '' }), 'no project url · no key');
+  assert.match(describeConfig({ url: 'https://a.supabase.co', anonKey: 'garbage' }), /unrecognised key/);
 });

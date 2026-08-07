@@ -304,7 +304,11 @@ body { touch-action: none; }
   overflow-y: auto;
 }
 .overlay.show { opacity: 1; pointer-events: auto; }
-.overlay-inner { width: min(520px, 100%); }
+/* `min-width: 0` matters more than it looks: a grid item defaults to
+   `min-width: auto`, so one long unbreakable string — a CDN URL in an error
+   message — would push the whole panel wider than a phone screen and cut the
+   right edge off every line in it. */
+.overlay-inner { width: min(520px, 100%); min-width: 0; }
 
 .panel {
   background: var(--surface);
@@ -492,7 +496,15 @@ input[type="text"]:focus-visible { outline: 2px solid var(--accent-hi); outline-
 .mp-join-existing[open] > summary::before { content: '▾ '; }
 .mp-join-existing > summary:hover { color: var(--text); }
 
-.mp-status { font-family: var(--mono); }
+/* Connection errors quote URLs, which have no spaces to wrap at. */
+.mp-status { font-family: var(--mono); overflow-wrap: anywhere; }
+/* Shown only when a join fails: which project and key kind were used. Quiet
+   enough to ignore when things work, legible enough to screenshot when they
+   don't. */
+.mp-diagnostics {
+  font-family: var(--mono); font-size: 0.72rem; color: var(--muted);
+  margin: -4px 0 6px; word-break: break-all; opacity: 0.85;
+}
 .mp-status.mp-error { color: var(--red); }
 .mp-roster { display: flex; flex-direction: column; gap: 7px; max-height: 220px; overflow-y: auto; }
 .mp-roster-row {

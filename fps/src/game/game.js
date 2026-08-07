@@ -28,7 +28,7 @@ import {
 } from './weapons.js';
 import {
   buildInviteUrl, buildSnapshot, colorForId, createInterpolator, createPublishGate,
-  sanitizeSnapshot, summarizeRoster,
+  describeConfig, sanitizeSnapshot, summarizeRoster,
 } from '../multiplayer/protocol.js';
 
 const FOG_COLOR = [0.043, 0.051, 0.078];
@@ -347,6 +347,11 @@ export class Game {
         import('../multiplayer/connection.js'),
         import('../multiplayer/supabaseConfig.js'),
       ]);
+      // Recorded before connecting so a failure can still say which project
+      // and key kind were tried — the first thing worth knowing, and otherwise
+      // only visible in devtools.
+      this.multiplayerDiagnostics = describeConfig(supabaseConfig);
+
       const session = await joinRoom({
         config: supabaseConfig,
         roomCode,
@@ -402,6 +407,7 @@ export class Game {
     return {
       status: this.multiplayerStatus,
       error: this.multiplayerError,
+      diagnostics: this.multiplayerDiagnostics ?? null,
       roomCode,
       // Built here rather than in the UI so the menu stays a dumb renderer and
       // never has to know what a room code means.

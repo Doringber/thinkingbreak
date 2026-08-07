@@ -317,6 +317,16 @@ export function createMenu({
       inviteUrl = state.inviteUrl ?? '';
       $('mp-copy-invite')?.classList.toggle('hidden', state.status !== 'connected' || !inviteUrl);
 
+      // Only on failure, and only once a join has actually been attempted:
+      // which project and key kind were used is the first thing worth knowing
+      // when it doesn't work, and this is the only place a phone can see it.
+      const diag = $('mp-diagnostics');
+      if (diag) {
+        const show = state.status === 'error' && Boolean(state.diagnostics);
+        diag.classList.toggle('hidden', !show);
+        diag.textContent = show ? state.diagnostics : '';
+      }
+
       renderMultiplayerRoster(state.roster);
     },
   };
