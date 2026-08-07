@@ -75,14 +75,24 @@ opens that link lands in the same arena without typing anything.
 
 ## Hosting it somewhere your team can reach
 
-GitHub Pages is the default, but it depends on Actions runners being available —
-when that queue stalls, deploys stop. `netlify.toml` in the repo root is a
-second, independent path that doesn't:
+This project publishes to two independent hosts from the same commit, so a
+stalled deploy on one doesn't take the game offline:
+
+| Host | Game URL | Built by |
+|---|---|---|
+| **Netlify** | **https://thinkingbreak.netlify.app/fps/** | push webhook |
+| GitHub Pages | https://doringber.github.io/thinkingbreak/fps/ | `.github/workflows/pages.yml` |
+
+Share the Netlify one. GitHub Pages depends on Actions runners being available,
+and when that queue stalls — as it has for hours at a time — deploys simply stop
+happening, leaving the URL serving an old build with no obvious sign of it.
+
+To set up Netlify on a fork (`netlify.toml` in the repo root already has the
+configuration):
 
 1. [app.netlify.com](https://app.netlify.com) → **Add new site → Import an
    existing project** → pick this repository.
-2. Leave the build command empty; publish directory `.` (the file already says
-   so). Deploy.
+2. Leave the build command empty; publish directory `.`. Deploy.
 3. The game is at `https://<your-site>.netlify.app/fps/`.
 
 Both can run at once — Netlify deploys from a push webhook, Pages from the

@@ -6,11 +6,36 @@
 
 **A lightweight browser arena shooter that plays while your coding agent works — and pauses the moment it stops.**
 
-[Play now](https://doringber.github.io/thinkingbreak/fps/) ·
+[Play now](https://thinkingbreak.netlify.app/fps/) ·
 [Install](https://doringber.github.io/thinkingbreak/) ·
+[Multiplayer](docs/MULTIPLAYER.md) ·
 [Attribution](MIGRATION.md)
 
 </div>
+
+---
+
+## Links
+
+| | |
+|---|---|
+| **Play** | **https://thinkingbreak.netlify.app/fps/** |
+| Landing / install page | https://doringber.github.io/thinkingbreak/ |
+| Invite a teammate | `https://thinkingbreak.netlify.app/fps/?room=YOURCODE` |
+| Repository | https://github.com/Doringber/thinkingbreak |
+| Build status | https://github.com/Doringber/thinkingbreak/actions |
+
+The game is published from the same commit to two independent hosts, so a
+stalled deploy on one doesn't take it offline:
+
+- **Netlify** — `thinkingbreak.netlify.app`, built straight from a push. This
+  is the link to share, because it does not depend on GitHub Actions runners.
+- **GitHub Pages** — `doringber.github.io/thinkingbreak/`, built by the
+  workflow. The installers and the editor extensions point here.
+
+To get a room: open the game, **Multiplayer → Create a room → Copy invite
+link**, and paste that in your team chat. Whoever opens it joins the same
+arena — no code to type, nothing to install.
 
 ---
 
@@ -162,19 +187,23 @@ time, speed and score multiplier.
 
 ## Multiplayer
 
-Optional, and off by default. Enter a **room code** in the pause menu's
-Multiplayer panel, share it with your team, and everyone who joins the same
-code shares one arena: you see each other move, shoot each other, and see a
-live roster of who's connected and whose agent is currently busy or idle —
-so you know when a teammate's arena just opened, not just your own.
+Optional, and off by default. Hit **Create a room** in the pause menu's
+Multiplayer panel and share the link it gives you — everyone who opens it
+shares one arena: you see each other move, shoot each other, and see a live
+roster of who's connected and whose agent is currently busy or idle, so you
+know when a teammate's arena just opened, not just your own.
 
-Nobody has to type that code, though. Hit **Copy invite link** and paste the
-result in your team chat — opening it joins the room directly. Or set the
-extension's `roomCode` setting once (workspace settings enrol everyone at
-once) and every agent break drops the whole team into the same arena with
-zero setup.
+```
+https://thinkingbreak.netlify.app/fps/?room=YOURCODE
+```
 
-This is the one part of the project that isn't purely static — GitHub Pages
+That's the whole flow: **Create a room → Copy invite link → paste in Slack.**
+Nobody types a code and nobody installs anything. Two other ways in, if they
+suit you better: type a code someone read out to you, or set the extension's
+`roomCode` setting once — put it in workspace settings and every agent break
+drops the whole team into the same arena with zero setup.
+
+This is the one part of the project that isn't purely static — static hosting
 can't hold a live connection open between players, so it talks to a small
 free [Supabase](https://supabase.com/) project you provision yourself.
 Nothing else needs it, single-player included, and it costs nothing to leave
